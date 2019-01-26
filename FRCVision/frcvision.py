@@ -99,9 +99,32 @@ class FRCVision:
         if (len(self.find_lines_output) != 0):
             lines = self.find_lines_output
 
+            
+            
+            xMin = 640
+            xMax = 0
+            yMin = 480
+            yMax = 0
+
             for line in lines:
                 cv2.line(outimg, (line.x1, line.y1), (line.x2, line.y2), (255, 0, 0), 1)
-        
+
+                if (line.y1 < yMin):
+                    yMin = line.y1
+                    xMin = line.x1
+                if (line.y2 < yMin):
+                    yMin = line.y2
+                    xMin = line.x2
+
+                if (line.y1 > yMax):
+                    yMax = line.y1
+                    xMax = line.x1
+                if (line.y2 > yMax):
+                    yMax = line.y2
+                    xMax = line.x2
+
+            cv2.line(outimg, (xMin, yMin), (xMax, yMax), (0, 0, 255), 2)
+
         #if(lines != None):
         #    cv2.createLineSegmentDetector().drawSegments(outimg, lines)
         #/
@@ -120,10 +143,10 @@ class FRCVision:
         #cv2.putText(outimg, "JeVois Python Sandbox", (3, 20), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255,255,255))
         
         # Write frames/s info from our timer into the edge map (NOTE: does not account for output conversion time):
-        fps = self.timer.stop()
+        #fps = self.timer.stop()
         outheight = 480
         outwidth = 640
-        #cv2.putText(outimg, self.find_lines_output[0].length(), (3, outheight - 6), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255,255,255))
+        #cv2.putText(outimg, fps, (3, outheight - 6), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255,255,255))
         #jevois.writeText(outimg, fps, 3, outheight - 6, jevois.YUYV.White, jevois.Font.Font10x20)
 
 
