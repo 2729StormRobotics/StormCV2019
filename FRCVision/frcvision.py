@@ -3,6 +3,7 @@ import cv2
 import numpy as np
 import math
 from enum import Enum
+from operator import attrgetter
 
 ## Simple example of image processing using OpenCV in Python on JeVois
 #
@@ -30,12 +31,19 @@ from enum import Enum
 # @ingroup modules
 class FRCVision:
     # ###################################################################################################
+    class Point:
+        def __init__(self, xVal, yVal):
+            self.x = xVal
+            self.y = yVal
+
     ## Constructor
     def __init__(self):
         # Instantiate a JeVois Timer to measure our processing framerate:
         self.timer = jevois.Timer("sandbox", 100, jevois.LOG_INFO)
 
-        #\
+        self.outheight = 480
+        self.outwidth = 640
+
         self.__hsv_threshold_hue = [55.505714854722264, 108.89977776139357]
         self.__hsv_threshold_saturation = [0.0, 255.0]
         self.__hsv_threshold_value = [91.72661870503595, 255.0]
@@ -59,7 +67,6 @@ class FRCVision:
         self.__find_lines_input = self.mask_output
 
         self.find_lines_output = None
-        #/
 
     # ###################################################################################################
     ## Process function with USB output
@@ -72,11 +79,6 @@ class FRCVision:
         # Start measuring image processing time (NOTE: does not account for input conversion time):
         self.timer.start()
 
-        # Detect edges using the Laplacian algorithm from OpenCV:
-        #
-        # Replace the line below by your own code! See for example
-
-        #\
         # Step HSV_Threshold0:
         self.__hsv_threshold_input = inimg
         (self.hsv_threshold_output) = self.__hsv_threshold(self.__hsv_threshold_input, self.__hsv_threshold_hue, self.__hsv_threshold_saturation, self.__hsv_threshold_value)
@@ -94,42 +96,74 @@ class FRCVision:
         self.__find_lines_input = self.mask_output
         (self.find_lines_output) = self.__find_lines(self.__find_lines_input)
 
-        #outimg = self.find_lines_output
+
         outimg = self.mask_output
         if (len(self.find_lines_output) != 0):
             lines = self.find_lines_output
-
-            
-            
-            xMin = 640
-            xMax = 0
-            yMin = 480
-            yMax = 0
+            points = []
+            minGap = 25
 
             for line in lines:
+                # Draws the line
                 cv2.line(outimg, (line.x1, line.y1), (line.x2, line.y2), (255, 0, 0), 1)
 
-                if (line.y1 < yMin):
-                    yMin = line.y1
-                    xMin = line.x1
-                if (line.y2 < yMin):
-                    yMin = line.y2
-                    xMin = line.x2
+                # Adds the line's points to an array
+                tmp = FRCVision.Point(line.x1, line.y1)
+                points.append(tmp)
+                tmp = FRCVision.Point(line.x2, line.y2)
+                points.append(tmp)
 
-                if (line.y1 > yMax):
-                    yMax = line.y1
-                    xMax = line.x1
-                if (line.y2 > yMax):
-                    yMax = line.y2
-                    xMax = line.x2
+            # Sorts an array twice by x values and y values respectively
+            xSort = sorted(points, key=attrgetter('x'))
+            ySort = sorted(points, key=attrgetter('y'))
 
-            cv2.line(outimg, (xMin, yMin), (xMax, yMax), (0, 0, 255), 2)
+            # Draws a line from the lowest x value to the greatest x value, and a line from the lowest y value to the greatest y value
+            #cv2.line(outimg, (ySort[0].x, ySort[0].y), (ySort[len(ySort) - 1].x, ySort[len(ySort) - 1].y), (0, 0, 255), 2)
+            #cv2.line(outimg, (xSort[0].x, xSort[0].y), (xSort[len(ySort) - 1].x, xSort[len(ySort) - 1].y), (0, 255, 0), 2)
 
-        #if(lines != None):
-        #    cv2.createLineSegmentDetector().drawSegments(outimg, lines)
-        #/
+            # Draws a horizontal line depicting the gaps between areas of interest
+            xGap = [xSort[0]]
+            for i in range(0, len(xSort) - 2):
+                if(abs(xSort[i].x - xSort[i + 1].x) >= minGap):
+                    xGap.append(xSort[i])
+                    xGap.append(xSort[i + 1])
+            xGap.append(xSort[len(xSort) - 1])
+            if len(xGap) != 0:
+                cv2.line(outimg, (xSort[0].x, math.floor(self.outheight / 2)), (xGap[0].x, math.floor(self.outheight / 2)), (0, 255, 0), 2)
+                cv2.line(outimg, (0, math.floor(self.outheight / 2)), (xSort[0].x, math.floor(self.outheight / 2)), (0, 0, 255), 2)
+                cv2.line(outimg, (xGap[len(xGap) - 1].x, math.floor(self.outheight / 2)), (xSort[len(xSort) - 1].x, math.floor(self.outheight / 2)), (0, 255, 0), 2)
+                cv2.line(outimg, (xSort[len(xSort) - 1].x, math.floor(self.outheight / 2)), (self.outwidth, math.floor(self.outheight / 2)), (0, 0, 255), 2)
 
-        #
+                for i in range (0, len(xGap) - 1):
+                    if i % 2 == 1:
+                        cv2.line(outimg, (xGap[i].x, math.floor(self.outheight / 2)), (xGap[i + 1].x, math.floor(self.outheight / 2)), (0, 0, 255), 2)
+                    else:
+                        cv2.line(outimg, (xGap[i].x, math.floor(self.outheight / 2)), (xGap[i + 1].x, math.floor(self.outheight / 2)), (0, 255, 0), 2)
+                        leftCorner = xGap[i]
+                        rightCorner = xGap[i + 1]
+                        topCorner = FRCVision.Point(0, 0)
+                        bottomCorner = FRCVision.Point(self.outwidth, self.outheight)
+
+                        cv2.line(outimg, (leftCorner.x, leftCorner.y), (rightCorner.x, rightCorner.y), (122, 0, 255), 2)
+
+                        for k in range (0, len(ySort) - 1):
+                            if(ySort[len(ySort) - 1 - k].x > leftCorner.x and ySort[len(ySort) - 1 - k].x < rightCorner.x):
+                                bottomCorner = ySort[len(ySort) - 1 - k]
+                                #cv2.line(outimg, (math.floor(bottomCorner.x - 1), bottomCorner.y), (math.floor(bottomCorner.x + 1), bottomCorner.y), (255, 0, 255), 2)
+                                break
+
+                        for k in range (0, len(ySort) - 1):
+                            if(ySort[k].x > leftCorner.x and ySort[k].x < rightCorner.x):
+                                topCorner = ySort[k]
+                                #cv2.line(outimg, (math.floor(topCorner.x - 1), topCorner.y), (math.floor(topCorner.x + 1), topCorner.y), (255, 0, 255), 2)
+                                break
+
+                        cv2.line(outimg, (topCorner.x, topCorner.y), (bottomCorner.x, bottomCorner.y), (122, 0, 255), 2)
+
+            else:
+                cv2.line(outimg, (xSort[0].x, math.floor(self.outheight / 2)), (xSort[len(xSort) - 1].x, math.floor(self.outheight / 2)), (0, 255, 0), 2)
+                cv2.line(outimg, (0, math.floor(self.outheight / 2)), (xSort[0].x, math.floor(self.outheight / 2)), (0, 0, 255), 2)
+                cv2.line(outimg, (xSort[len(xSort) - 1].x, math.floor(self.outheight / 2)), (self.outwidth, math.floor(self.outheight / 2)), (0, 0, 255), 2)
         # and so on. When they do "img = cv2.imread('name.jpg', 0)" in these tutorials, the last 0 means they want a
         # gray image, so you should use getCvGRAY() above in these cases. When they do not specify a final 0 in imread()
         # then usually they assume color and you should use getCvBGR() here.
@@ -144,8 +178,6 @@ class FRCVision:
         
         # Write frames/s info from our timer into the edge map (NOTE: does not account for output conversion time):
         #fps = self.timer.stop()
-        outheight = 480
-        outwidth = 640
         #cv2.putText(outimg, fps, (3, outheight - 6), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255,255,255))
         #jevois.writeText(outimg, fps, 3, outheight - 6, jevois.YUYV.White, jevois.Font.Font10x20)
 
