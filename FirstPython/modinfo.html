@@ -1,0 +1,72 @@
+<html><head>
+<META HTTP-EQUIV="Content-Type" CONTENT="text/html; charset=iso-8859-1">
+<META HTTP-EQUIV="Content-Language" CONTENT="en-US"><META NAME="robots" CONTENT="index, follow">
+<META NAME="rating" CONTENT="General"><META NAME="distribution" CONTENT="Global">
+<META NAME="revisit-after" CONTENT="15 days"><META NAME="author" CONTENT="Laurent Itti, JeVois">
+<META NAME="description" CONTENT="JeVois Smart Embedded Machine Vision Toolkit - module FirstPython">
+<link href='http://fonts.googleapis.com/css?family=Open+Sans:300italic,400italic,600italic,700italic,800italic,400,300,600,700,800' rel='stylesheet' type='text/css'>
+<link rel='stylesheet prefetch' href='https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.4.0/css/font-awesome.min.css'>
+<link rel="stylesheet" type="text/css" href="/modstyle.css">
+</head> <body>
+<table class=modinfo><tr><td>
+<table class=modinfotop><tr><td><a href="/moddoc/FirstPython/modinfo.html"><img src="/moddoc/FirstPython/icon.png" width=48></a></td>
+<td valign=middle><table><tr><td class=modinfoname>FIRST Python</td></tr>
+<tr><td class=modinfosynopsis>Simple example of FIRST Robotics image processing pipeline using OpenCV in Python on JeVois. </td></tr></table></td></tr></table></td></tr>
+<tr><td width=100%><table class=modinfoauth width=100%><tr><td>By Laurent Itti</td><td align=center>itti@usc.edu</td><td align=center>http://jevois.org</td><td align=right>GPL v3</td></tr></table></td></tr>
+<tr><td><table class=videomapping><tr><td class=videomapping>
+<table class=moduledata><tr><td class=moduledata>&nbsp;Language:&nbsp;Python</td><td class=moduledata align=center>Supports mappings with USB output:&nbsp;Yes</td><td class=moduledata align=right>Supports mappings with NO USB output:&nbsp;Yes&nbsp;</td></tr></table>
+</td></tr>
+<tr><td class=videomapping><small><b>&nbsp;Video Mapping: &nbsp; </b></small><tt>YUYV&nbsp;640&nbsp;252&nbsp;60.0&nbsp;YUYV&nbsp;320&nbsp;240&nbsp;60.0&nbsp;JeVois&nbsp;FirstPython</tt></td></tr>
+<tr><td class=videomapping><small><b>&nbsp;Video Mapping: &nbsp; </b></small><tt>YUYV&nbsp;320&nbsp;252&nbsp;60.0&nbsp;YUYV&nbsp;320&nbsp;240&nbsp;60.0&nbsp;JeVois&nbsp;FirstPython</tt></td></tr>
+</table></td></tr>
+<tr><td><div class=container>
+<div class=galleryItem><a href="screenshot1.png"><img src="screenshot1.png"></a></div>
+</div></td></tr><tr><td class=modinfodesc><h2>Module Documentation</h2><div class="textblock"><p>This module is a simplified version of the C++ module <a href='/moddoc/FirstVision/modinfo.html'><strong class='jvmod'>FirstVision</strong></a>. It is available with <strong class='jvversion'>JeVois v1.6.2</strong> or later.</p>
+<p>This module implements a simple color-based object detector using OpenCV in Python. Its main goal is to also demonstrate full 6D pose recovery of the detected object, in Python.</p>
+<p>This module isolates pixels within a given HSV range (hue, saturation, and value of color pixels), does some cleanups, and extracts object contours. It is looking for a rectangular U shape of a specific size (set by parameters <code>owm</code> and <code>ohm</code> for object width and height in meters). See screenshots for an example of shape. It sends information about detected objects over serial.</p>
+<p>This module usually works best with the camera sensor set to manual exposure, manual gain, manual color balance, etc so that HSV color values are reliable. See the file <b>script.cfg</b> file in this module's directory for an example of how to set the camera settings each time this module is loaded.</p>
+<p>This module is provided for inspiration. It has no pretension of actually solving the FIRST Robotics vision problem in a complete and reliable way. It is released in the hope that FRC teams will try it out and get inspired to develop something much better for their own robot.</p>
+<h2>Using this module </h2>
+<p>Check out <a href="http://jevois.org/tutorials/UserFirstVision.html">this tutorial</a> first, for the <a href='/moddoc/FirstVision/modinfo.html'><strong class='jvmod'>FirstVision</strong></a> module written in C++ and also check out the doc for <a href='/moddoc/FirstVision/modinfo.html'><strong class='jvmod'>FirstVision</strong></a>. Then you can just dive in and start editing the python code of <a href='/moddoc/FirstPython/modinfo.html'><strong class='jvmod'>FirstPython</strong></a>.</p>
+<p>See <a href="http://jevois.org/tutorials">http://jevois.org/tutorials</a> for tutorials on getting started with programming JeVois in Python without having to install any development software on your host computer.</p>
+<h2>Trying it out </h2>
+<p>Edit the module's file at JEVOIS:/modules/JeVois/FirstPython/FirstPython.py and set the parameters <code>self.owm</code> and <code>self.ohm</code> to the physical width and height of your U-shaped object in meters. You should also review and edit the other parameters in the module's constructor, such as the range of HSV colors.</p>
+</div></td></tr>
+<tr><td><table class=modinfopar><tr><th class=modinfopar>Parameter</th><th class=modinfopar>Type</th><th class=modinfopar>Description</th><th class=modinfopar>Default</th><th class=modinfopar>Valid&nbsp;Values</th></tr>
+<tr><td colspan=5>This module exposes no parameter</td></tr>
+</table></td></tr>
+<tr><td><table class=modinfocfg><tr><td class=modinfocfg><b>script.cfg file</b><hr><pre># Demo configuration script for FirstPython module.
+
+# Set camera to fixed color balance, gain, and exposure, so that we get more reliable colors than we would obtain under
+# automatic mode:
+setcam presetwb 0
+setcam autowb 0
+setcam autogain 0
+setcam autoexp 0
+setcam redbal 110
+setcam bluebal 170
+setcam gain 16
+setcam absexp 500
+
+# Send info log messages to None, Hard, or USB serial port - useful for debugging:
+#setpar serlog None
+#setpar serlog Hard
+#setpar serlog USB
+
+# Send serial strings with detected objects to None, Hard, or USB serial port:
+#setpar serout None
+#setpar serout Hard
+#setpar serout USB
+</pre></td></tr></table></td></tr>
+<tr><td><table class=modinfomisc>
+<tr class=modinfomisc><th class=modinfomisc>Detailed docs:</th><td class=modinfomisc><A HREF="/basedoc/classFirstPython_1_1FirstPython.html">FirstPython</A></td></tr>
+<tr class=modinfomisc><th class=modinfomisc>Copyright:</th><td class=modinfomisc>Copyright (C) 2018 by Laurent Itti, iLab and the University of Southern California</td></tr>
+<tr class=modinfomisc><th class=modinfomisc>License:</th><td class=modinfomisc>GPL v3</td></tr>
+<tr class=modinfomisc><th class=modinfomisc>Distribution:</th><td class=modinfomisc>Unrestricted</td></tr>
+<tr class=modinfomisc><th class=modinfomisc>Restrictions:</th><td class=modinfomisc>None</td></tr>
+<tr class=modinfomisc><th class=modinfomisc>Support URL:</th><td class=modinfomisc>http://jevois.org/doc</td></tr>
+<tr class=modinfomisc><th class=modinfomisc>Other URL:</th><td class=modinfomisc>http://iLab.usc.edu</td></tr>
+<tr class=modinfomisc><th class=modinfomisc>Address:</th><td class=modinfomisc>University of Southern California, HNB-07A, 3641 Watt Way, Los Angeles, CA 90089-2520, USA</td></tr>
+</table></td></tr>
+</table>
+</body></html>
