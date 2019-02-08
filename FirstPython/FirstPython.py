@@ -82,12 +82,12 @@ class FirstPython:
         #      105=light blue, 120=blue, 135=purple, 150=pink
         # S: 0 for unsaturated (whitish discolored object) to 255 for fully saturated (solid color)
         # V: 0 for dark to 255 for maximally bright
-        self.HSVmin = np.array([ 30,  30, 30], dtype=np.uint8)
+        self.HSVmin = np.array([ 30, 75, 30], dtype=np.uint8)
         self.HSVmax = np.array([ 90, 255, 255], dtype=np.uint8)
 
         # Measure your U-shaped object (in meters) and set its size here:
-        self.owm = 0.280 # width in meters
-        self.ohm = 0.175 # height in meters
+        self.owm = 0.201613 # width in meters
+        self.ohm = 0.122237 # height in meters
 
         # Other processing parameters:
         self.epsilon = 0.015               # Shape smoothing factor (higher for smoother)
@@ -144,28 +144,6 @@ class FirstPython:
 
         # Only consider the 5 biggest objects by area:
         contours = sorted(contours, key = cv2.contourArea, reverse = True)[:maxn]
-        #!!!
-        """
-        for c in contours:
-            hullPoints = cv2.convexHull(c, clockwise = True, returnPoints = True)
-            top = hullPoints[0]
-            bottom = hullPoints[0]
-            left = hullPoints[0]
-            right = hullPoints[0]
-            for point in hullPoints:
-                if(point[0][1] < top[0][1]):
-                    top = point
-                if(point[0][1] > bottom[0][1]):
-                    bottom = point
-                if(point[0][0] < left[0][0]):
-                    left = point
-                if(point[0][0] > right[0][0]):
-                    right = point
-            cv2.line(imgth, (top[0][0], top[0][1]), (right[0][0], right[0][1]), 2, jevois.YUYV.MedPurple)
-            cv2.line(imgth, (right[0][0], right[0][1]), (bottom[0][0], bottom[0][1]), 2, jevois.YUYV.MedPurple)
-            cv2.line(imgth, (bottom[0][0], bottom[0][1]), (left[0][0], left[0][1]), 2, jevois.YUYV.MedPurple)
-            cv2.line(imgth, (left[0][0], left[0][1]), (top[0][0], top[0][1]), 2, jevois.YUYV.MedPurple)
-        """
 
         hlist = [ ] # list of hulls of good objects, which we will return
         str2 = ""
@@ -349,7 +327,18 @@ class FirstPython:
                             int(imagePoints[3][0,0] + 0.5), int(imagePoints[3][0,1] + 0.5),
                             2, jevois.YUYV.MedGrey)
             #jevois.drawLine(outimg, 50, 50, 100, 100, 1, jevois.YUYV.MedGrey)
-            jevois.writeText(outimg, math.atan(rvecs[i][0] / rvecs[i][0]), 3, 20, jevois.YUYV.White, jevois.Font.Font6x10)
+            output = "output: "
+            #for row in range(len(jac)):
+            #	jevois.writeText(outimg, output, 3, 0 + row * 10, jevois.YUYV.White, jevois.Font.Font6x10)
+            #	output = ""
+            #	for val in jac[row]:
+            #		output += str(val) + " || "
+            for k in range(len(rvecs[i])):
+            	jevois.writeText(outimg, output, 3, k * 10, jevois.YUYV.White, jevois.Font.Font6x10)
+            	output = ""
+            	for val in rvecs[i][k]:
+            		output += str(val)
+            jevois.writeText(outimg, output, 3, (k + 1) * 10, jevois.YUYV.White, jevois.Font.Font6x10)
           
             # Also draw a parallelepiped:
             cubePoints = np.array([ (-hw, -hh, 0.0), (hw, -hh, 0.0), (hw, hh, 0.0), (-hw, hh, 0.0),
@@ -430,6 +419,7 @@ class FirstPython:
         # Get pre-allocated but blank output image which we will send over USB:
         outimg = outframe.get()
         outimg.require("output", w * 2, h + 12, jevois.V4L2_PIX_FMT_YUYV)
+        #outimg.require("output", w, h + 12, jevois.V4L2_PIX_FMT_YUYV)
         jevois.paste(inimg, outimg, 0, 0)
         jevois.drawFilledRect(outimg, 0, h, outimg.width, outimg.height-h, jevois.YUYV.Black)
         
@@ -457,4 +447,3 @@ class FirstPython:
     
         # We are done with the output, ready to send it to host over USB:
         outframe.send()
-
