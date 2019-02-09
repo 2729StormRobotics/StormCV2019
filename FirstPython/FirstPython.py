@@ -89,6 +89,11 @@ class FirstPython:
         self.owm = 0.201613 # width in meters
         self.ohm = 0.122237 # height in meters
 
+        # Camera Values
+        self.fov = 1.13446	# field of view in radians
+        self.width = 640	# width of resolution
+        self.height = 480	# height of resolution
+
         # Other processing parameters:
         self.epsilon = 0.015               # Shape smoothing factor (higher for smoother)
         self.hullarea = ( 20*20, 300*300 ) # Range of object area (in pixels) to track
@@ -233,7 +238,7 @@ class FirstPython:
         
             # Fixup the ordering of the vertices if needed:
             if bad > good: hull = np.roll(hull, shift = 1, axis = 0)
-                
+
             # This detection is a keeper:
             str2 += " OK"
             hlist.append(hull)
@@ -326,13 +331,9 @@ class FirstPython:
             jevois.drawLine(outimg, int(imagePoints[0][0,0] + 0.5), int(imagePoints[0][0,1] + 0.5),
                             int(imagePoints[3][0,0] + 0.5), int(imagePoints[3][0,1] + 0.5),
                             2, jevois.YUYV.MedGrey)
-            #jevois.drawLine(outimg, 50, 50, 100, 100, 1, jevois.YUYV.MedGrey)
+
+            # Output Orientation of Target in Radians
             output = "output: "
-            #for row in range(len(jac)):
-            #	jevois.writeText(outimg, output, 3, 0 + row * 10, jevois.YUYV.White, jevois.Font.Font6x10)
-            #	output = ""
-            #	for val in jac[row]:
-            #		output += str(val) + " || "
             for k in range(len(rvecs[i])):
             	jevois.writeText(outimg, output, 3, k * 10, jevois.YUYV.White, jevois.Font.Font6x10)
             	output = ""
@@ -434,6 +435,21 @@ class FirstPython:
 
         # Map to 6D (inverse perspective):
         (rvecs, tvecs) = self.estimatePose(hlist)
+
+        # Calculate Distance
+        for i in range(len(hlist)):
+        	# -- Find pix distance between 1 and 2
+        	npHull = np.array(hlist[i], dtype=np.float).reshape(4,2,1)
+        	pixWidth = math.sqrt(math.pow(npHull[1,0,0] - npHull[2,0,0], 2) + math.pow(npHull[1,1,0] - npHull[2,1,0], 2))
+        	# -- Find radians of pix distance
+        	fovRad = pixWidth * self.fov / self.width
+        	# -- Plug in
+        	distance = 0 # TODO new equation
+
+        	# Convert meters to feet
+        	distance *= 3.28084
+
+        	jevois.writeText(outimg, "Distance: {}".format(distance), 3, 50 + i * 10, jevois.YUYV.White, jevois.Font.Font6x10)
 
         # Send all serial messages:
         self.sendAllSerial(w, h, hlist, rvecs, tvecs)
