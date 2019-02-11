@@ -143,6 +143,38 @@ class FirstPython:
         imgth = cv2.erode(imgth, self.erodeElement)
         imgth = cv2.dilate(imgth, self.dilateElement)
 
+        #!!!-- Apply Mod --!!!#
+        contours, hierarchy = cv2.findContours(imgth, cv2.RETR_CCOMP, cv2.CHAIN_APPROX_SIMPLE)
+        contours = sorted(contours, key = cv2.contourArea, reverse = True)[:maxn]
+
+        hulls = ()
+        centers = ()
+        for i in range(len(contours)):
+        	rawhull = cv2.convexHull(contours[i], clockwise = True)
+        	rawhullperi = cv2.arcLength(rawhull, closed = True)
+        	hull = cv2.approxPolyDP(rawhull, epsilon = self.epsilon * rawhullperi * 3.0, closed = True)
+
+        	huarea = cv2.contourArea(hull, oriented = False)
+        	if len(hull) == 4 and huarea > self.hullarea[0] and huarea < self.hullarea[1]:
+        		npHull = np.array(hull, dtype=int).reshape(4,2,1)
+        		jevois.drawLine(outimg, int(npHull[0,0,0]), int(npHull[0,1,0]), int(npHull[1,0,0]), int(npHull[1,1,0]), 2, jevois.YUYV.MedPurple)
+        		jevois.drawLine(outimg, int(npHull[1,0,0]), int(npHull[1,1,0]), int(npHull[2,0,0]), int(npHull[2,1,0]), 2, jevois.YUYV.MedPurple)
+        		jevois.drawLine(outimg, int(npHull[2,0,0]), int(npHull[2,1,0]), int(npHull[3,0,0]), int(npHull[3,1,0]), 2, jevois.YUYV.MedPurple)
+        		jevois.drawLine(outimg, int(npHull[3,0,0]), int(npHull[3,1,0]), int(npHull[0,0,0]), int(npHull[0,1,0]), 2, jevois.YUYV.MedPurple)
+
+        		centers += (((npHull[0,0,0] + npHull[1,0,0] + npHull[2,0,0] + npHull[3,0,0]) / 4, (npHull[0,1,0] + npHull[1,1,0] + npHull[2,1,0] + npHull[3,1,0]) / 4),)
+        		hulls += (npHull,)
+
+        for i in range(len(hulls)):
+        	closest = (0, math.pow(centers[i][0] - centers[0][0], 2) + math.pow(centers[i][1] - centers[0][1], 2))
+        	for k in range(len(hulls)):
+        		if(i != k):
+        			if(closest[1] < (math.pow(centers[i][0] - centers[closest][0], 2) + math.pow(centers[i][1] - centers[closest][1], 2))):
+        				closest[0] = k
+        				closest[1] = math.pow(centers[i][0] - centers[closest][0], 2) + math.pow(centers[i][1] - centers[closest][1], 2)
+        	jevois.drawLine(outimg, int(centers[i][0]), int(centers[i][1]), int(centers[closest][0]), int(centers[closest][1]), 2, jevois.YUYV.MedGreen)
+    	#!!!-- End Mod --!!!#
+
         # Detect objects by finding contours:
         contours, hierarchy = cv2.findContours(imgth, cv2.RETR_CCOMP, cv2.CHAIN_APPROX_SIMPLE)
         str += "N={} ".format(len(contours))
@@ -334,11 +366,11 @@ class FirstPython:
 
             # Output Orientation of Target in Radians
             output = "output: "
-            for k in range(len(rvecs[i])):
+            for k in range(len(tvecs[i])):
             	jevois.writeText(outimg, output, 3, k * 10, jevois.YUYV.White, jevois.Font.Font6x10)
             	output = ""
-            	for val in rvecs[i][k]:
-            		output += str(val)
+            	for val in tvecs[i][k]:
+            		output += str(val * 3.28084)
             jevois.writeText(outimg, output, 3, (k + 1) * 10, jevois.YUYV.White, jevois.Font.Font6x10)
           
             # Also draw a parallelepiped:
@@ -376,7 +408,7 @@ class FirstPython:
                             1, jevois.YUYV.LightGreen)
 
             i += 1
-            
+
     # ###################################################################################################
     ## Process function with no USB output
     def processNoUSB(self, inframe):
@@ -441,15 +473,19 @@ class FirstPython:
         	# -- Find pix distance between 1 and 2
         	npHull = np.array(hlist[i], dtype=np.float).reshape(4,2,1)
         	pixWidth = math.sqrt(math.pow(npHull[1,0,0] - npHull[2,0,0], 2) + math.pow(npHull[1,1,0] - npHull[2,1,0], 2))
+
+        	# -- Find full width along pixWidth line
+        	#fullWidth = math.sqrt(math.pow(self.width, 2) + math.pow(((npHull[1,1,0] - npHull[2,1,0]) / (npHull[1,0,0] - npHull[2,0,0]) * (-1 * npHull[1,0,0]) + npHull[1,1,0]) - ((npHull[1,1,0] - npHull[2,1,0]) / (npHull[1,0,0] - npHull[2,0,0]) * (self.width - npHull[2,0,0]) + npHull[1,1,0]), 2))
+
         	# -- Find radians of pix distance
-        	fovRad = pixWidth * self.fov / self.width
+        	#fovRad = pixWidth * self.fov / self.width
         	# -- Plug in
-        	distance = 0 # TODO new equation
+        	#distance = fovRad #TODO new equation
 
         	# Convert meters to feet
-        	distance *= 3.28084
+        	# distance *= 3.28084
 
-        	jevois.writeText(outimg, "Distance: {}".format(distance), 3, 50 + i * 10, jevois.YUYV.White, jevois.Font.Font6x10)
+        	#jevois.writeText(outimg, "Distance: {}".format(distance), 3, 50 + i * 10, jevois.YUYV.White, jevois.Font.Font6x10)
 
         # Send all serial messages:
         self.sendAllSerial(w, h, hlist, rvecs, tvecs)
