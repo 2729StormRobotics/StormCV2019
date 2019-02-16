@@ -82,17 +82,19 @@ class FirstPython:
         #      105=light blue, 120=blue, 135=purple, 150=pink
         # S: 0 for unsaturated (whitish discolored object) to 255 for fully saturated (solid color)
         # V: 0 for dark to 255 for maximally bright
-        self.HSVmin = np.array([ 30, 75, 30], dtype=np.uint8)
-        self.HSVmax = np.array([ 90, 255, 255], dtype=np.uint8)
+        #self.HSVmin = np.array([ 30, 75, 30], dtype=np.uint8)
+        self.HSVmin = np.array([45, 50, 50], dtype=np.uint8)
+        self.HSVmax = np.array([90, 255, 255], dtype=np.uint8)
+        # Detected Color Approx: [110.5, 255, 250.92]
 
         # Measure your U-shaped object (in meters) and set its size here:
-        self.owm = 0.201613 # width in meters
-        self.ohm = 0.122237 # height in meters
+        self.owm = 0.2794 # width in meters
+        self.ohm = 0.0762 # height in meters
 
         # Camera Values
-        self.fov = 1.13446	# field of view in radians
-        self.width = 640	# width of resolution
-        self.height = 480	# height of resolution
+        self.fov = 1.13446  # field of view in radians
+        self.width = 640    # width of resolution
+        self.height = 480   # height of resolution
 
         # Other processing parameters:
         self.epsilon = 0.015               # Shape smoothing factor (higher for smoother)
@@ -126,6 +128,11 @@ class FirstPython:
         maxn = 5 # max number of objects we will consider
         h, w, chans = imgbgr.shape
 
+        # Draw test line
+        #poly = np.array([[400, 150], [390, 200], [490, 197], [497, 160], [485, 172], [478, 185], [402, 188], [412, 162]], np.int32)
+        #poly = poly.reshape((-1,1,2))
+        #cv2.fillPoly(imgbgr, [poly], (0, 255, 0))
+
         # Convert input image to HSV:
         imghsv = cv2.cvtColor(imgbgr, cv2.COLOR_BGR2HSV)
 
@@ -150,30 +157,91 @@ class FirstPython:
         hulls = ()
         centers = ()
         for i in range(len(contours)):
-        	rawhull = cv2.convexHull(contours[i], clockwise = True)
-        	rawhullperi = cv2.arcLength(rawhull, closed = True)
-        	hull = cv2.approxPolyDP(rawhull, epsilon = self.epsilon * rawhullperi * 3.0, closed = True)
+            rawhull = cv2.convexHull(contours[i], clockwise = True)
+            rawhullperi = cv2.arcLength(rawhull, closed = True)
+            hull = cv2.approxPolyDP(rawhull, epsilon = self.epsilon * rawhullperi * 3.0, closed = True)
 
-        	huarea = cv2.contourArea(hull, oriented = False)
-        	if len(hull) == 4 and huarea > self.hullarea[0] and huarea < self.hullarea[1]:
-        		npHull = np.array(hull, dtype=int).reshape(4,2,1)
-        		jevois.drawLine(outimg, int(npHull[0,0,0]), int(npHull[0,1,0]), int(npHull[1,0,0]), int(npHull[1,1,0]), 2, jevois.YUYV.MedPurple)
-        		jevois.drawLine(outimg, int(npHull[1,0,0]), int(npHull[1,1,0]), int(npHull[2,0,0]), int(npHull[2,1,0]), 2, jevois.YUYV.MedPurple)
-        		jevois.drawLine(outimg, int(npHull[2,0,0]), int(npHull[2,1,0]), int(npHull[3,0,0]), int(npHull[3,1,0]), 2, jevois.YUYV.MedPurple)
-        		jevois.drawLine(outimg, int(npHull[3,0,0]), int(npHull[3,1,0]), int(npHull[0,0,0]), int(npHull[0,1,0]), 2, jevois.YUYV.MedPurple)
+            # Outline hull and find center
+            huarea = cv2.contourArea(hull, oriented = False)
+            if len(hull) == 4 and huarea > self.hullarea[0] and huarea < self.hullarea[1]:
+                npHull = np.array(hull, dtype=int).reshape(4,2,1)
+                jevois.drawLine(outimg, int(npHull[0,0,0]), int(npHull[0,1,0]), int(npHull[1,0,0]), int(npHull[1,1,0]), 2, jevois.YUYV.MedPurple)
+                jevois.drawLine(outimg, int(npHull[1,0,0]), int(npHull[1,1,0]), int(npHull[2,0,0]), int(npHull[2,1,0]), 2, jevois.YUYV.MedPurple)
+                jevois.drawLine(outimg, int(npHull[2,0,0]), int(npHull[2,1,0]), int(npHull[3,0,0]), int(npHull[3,1,0]), 2, jevois.YUYV.MedPurple)
+                jevois.drawLine(outimg, int(npHull[3,0,0]), int(npHull[3,1,0]), int(npHull[0,0,0]), int(npHull[0,1,0]), 2, jevois.YUYV.MedPurple)
 
-        		centers += (((npHull[0,0,0] + npHull[1,0,0] + npHull[2,0,0] + npHull[3,0,0]) / 4, (npHull[0,1,0] + npHull[1,1,0] + npHull[2,1,0] + npHull[3,1,0]) / 4),)
-        		hulls += (npHull,)
+                centers += (((npHull[0,0,0] + npHull[1,0,0] + npHull[2,0,0] + npHull[3,0,0]) / 4, (npHull[0,1,0] + npHull[1,1,0] + npHull[2,1,0] + npHull[3,1,0]) / 4),)
+                hulls += (npHull,)
 
+        # Reset Image
+        imgth = cv2.inRange(imghsv, np.array([122, 122, 122], dtype=np.uint8), np.array([122, 122, 122], dtype=np.uint8))
+
+        # Find closest hull and draw center to center
+        nearHull = ()
         for i in range(len(hulls)):
-        	closest = (0, math.pow(centers[i][0] - centers[0][0], 2) + math.pow(centers[i][1] - centers[0][1], 2))
-        	for k in range(len(hulls)):
-        		if(i != k):
-        			if(closest[1] < (math.pow(centers[i][0] - centers[closest][0], 2) + math.pow(centers[i][1] - centers[closest][1], 2))):
-        				closest[0] = k
-        				closest[1] = math.pow(centers[i][0] - centers[closest][0], 2) + math.pow(centers[i][1] - centers[closest][1], 2)
-        	jevois.drawLine(outimg, int(centers[i][0]), int(centers[i][1]), int(centers[closest][0]), int(centers[closest][1]), 2, jevois.YUYV.MedGreen)
-    	#!!!-- End Mod --!!!#
+            closest = (-1, 0.0)
+            for k in range(len(hulls)):
+                if(i != k):
+                    if(closest[0] == -1):
+                        closest = (k,math.pow(centers[i][0] - centers[closest[0]][0], 2) + math.pow(centers[i][1] - centers[closest[0]][1], 2))
+                    elif(closest[1] < (math.pow(centers[i][0] - centers[closest[0]][0], 2) + math.pow(centers[i][1] - centers[closest[0]][1], 2))):
+                        closest = (k,math.pow(centers[i][0] - centers[closest[0]][0], 2) + math.pow(centers[i][1] - centers[closest[0]][1], 2))
+            nearHull += (closest[0],)
+            #cv2.line(imgth, (int(centers[i][0]), int(centers[i][1])), (int(centers[closest[0]][0]), int(centers[closest[0]][1])), (255, 255, 255), 2)
+
+        # Find furthest points and draw point to point
+        farPoint = ()
+        for i in range(len(hulls)):
+            furthest = (-1, -1, 0.0)
+            for k in range(len(hulls[i])):
+                for j in range(len(hulls[nearHull[i]])):
+                    if(furthest[0] == -1 and furthest[1] == -1):
+                        furthest = (k, j, math.pow(hulls[i][k,0,0] - hulls[nearHull[i]][j,0,0],2) + math.pow(hulls[i][k,1,0] - hulls[nearHull[i]][j,1,0],2))
+                    elif(furthest[2] > math.pow(hulls[i][k,0,0] - hulls[nearHull[i]][j,0,0],2) + math.pow(hulls[i][k,1,0] - hulls[nearHull[i]][j,1,0],2)):
+                        furthest = (k, j, math.pow(hulls[i][k,0,0] - hulls[nearHull[i]][j,0,0],2) + math.pow(hulls[i][k,1,0] - hulls[nearHull[i]][j,1,0],2))
+            #cv2.line(imgth, (int(hulls[i][furthest[0],0,0]), int(hulls[i][furthest[0],1,0])), (int(hulls[nearHull[i]][furthest[1],0,0]), int(hulls[nearHull[i]][furthest[1],1,0])), (255, 255, 255), 2)
+
+        # Define left and right and find the bottom points
+        for i in range(len(hulls)):
+            for k in range(len(hulls[i])):
+                for j in range(len(hulls[nearHull[i]])):
+                    # Left
+                    if(centers[i][0] < centers[nearHull[i]][0]):
+                        #cv2.line(imgth, (int(hulls[i][(furthest[0] + 1) % 4,0,0]), int(hulls[i][(furthest[0] + 1) % 4,1,0])), (int(hulls[nearHull[i]][(furthest[1] + 3) % 4,0,0]), int(hulls[nearHull[i]][(furthest[1] + 3) % 4,1,0])), (255, 255, 255, 1))
+                        #cv2.line(imgth, (int(centers[i][0]), int(centers[i][1])), (int(hulls[i][(furthest[0] + 1) % 4,0,0]), int(hulls[i][(furthest[0] + 1) % 4,1,0])), (255, 255, 255), 2)
+                        #cv2.line(imgth, (int(hulls[nearHull[i]][(furthest[1] + 3) % 4,0,0]), int(hulls[nearHull[i]][(furthest[1] + 3) % 4,1,0])), (int(centers[nearHull[i]][0]), int(centers[nearHull[i]][1])), (255, 255, 255), 2)
+
+                        corners = (
+                            (int(centers[i][0]), int(centers[i][1])),
+                            (int(hulls[i][(furthest[0] + 1) % 4,0,0]), int(hulls[i][(furthest[0] + 1) % 4,1,0])),
+                            (int(hulls[nearHull[i]][(furthest[1] + 3) % 4,0,0]), int(hulls[nearHull[i]][(furthest[1] + 3) % 4,1,0])),
+                            (int(centers[nearHull[i]][0]), int(centers[nearHull[i]][1])),
+                            )
+
+                        poly = np.array([
+                            [corners[0][0], corners[0][1]],
+                            [corners[1][0], corners[1][1]],
+                            [corners[2][0], corners[2][1]],
+                            [corners[3][0], corners[3][1]],
+                            ],np.int32)
+                        
+                        """polyCenter = [int((int(centers[i][0]) + int(hulls[i][(furthest[0] + 1) % 4,0,0]) + int(hulls[nearHull[i]][(furthest[1] + 3) % 4,0,0]) + int(centers[nearHull[i]][0]))), int((int(centers[i][1]) + int(hulls[i][(furthest[0] + 1) % 4,1,0]) + int(hulls[nearHull[i]][(furthest[1] + 3) % 4,1,0]) + int(centers[nearHull[i]][1])))]
+
+                        poly = np.array([[int(centers[i][0]), int(centers[i][1])], 
+                            [int(hulls[i][(furthest[0] + 1) % 4,0,0]), int(hulls[i][(furthest[0] + 1) % 4,1,0])], 
+                            [int(hulls[nearHull[i]][(furthest[1] + 3) % 4,0,0]), int(hulls[nearHull[i]][(furthest[1] + 3) % 4,1,0])],
+                            [int(centers[nearHull[i]][0]), int(centers[nearHull[i]][1])],
+                            [int((polyCenter[0] + int(hulls[nearHull[i]][(furthest[1] + 3) % 4,0,0]) + int(centers[nearHull[i]][0])) / 6), int((polyCenter[1] + int(centers[i][1]) + int(centers[nearHull[i]][1])) / 6)],
+                            [int((polyCenter[0] + int(hulls[nearHull[i]][(furthest[1] + 3) % 4,0,0]) + int(centers[nearHull[i]][0])) / 6), int((polyCenter[1] + int(hulls[i][(furthest[0] + 1) % 4,1,0]) + int(hulls[nearHull[i]][(furthest[1] + 3) % 4,1,0])) / 6)],
+                            [int((polyCenter[0] + int(centers[i][0]) + int(hulls[i][(furthest[0] + 1) % 4,1,0])) / 6), int((polyCenter[1] + int(hulls[i][(furthest[0] + 1) % 4,1,0]) + int(hulls[nearHull[i]][(furthest[1] + 3) % 4,1,0])) / 6)],
+                            [int((polyCenter[0] + int(centers[i][0]) + int(hulls[i][(furthest[0] + 1) % 4,1,0])) / 6), int((polyCenter[1] + int(centers[i][1]) + int(centers[nearHull[i]][1])) / 6)],
+                            ],np.int32)
+                        """
+
+                        poly = poly.reshape((-1,1,2))
+                        cv2.fillPoly(imgth, [poly], (255, 255, 255))
+
+        #!!!-- End Mod --!!!#
 
         # Detect objects by finding contours:
         contours, hierarchy = cv2.findContours(imgth, cv2.RETR_CCOMP, cv2.CHAIN_APPROX_SIMPLE)
@@ -209,7 +277,7 @@ class FirstPython:
             str2 += "A" # Hull area ok
           
             hufill = area / huarea * 100.0
-            if hufill > self.hullfill: continue
+            #if hufill > self.hullfill: continue
             str2 += "F" # Fill is ok
           
             # Check object shape:
@@ -367,10 +435,10 @@ class FirstPython:
             # Output Orientation of Target in Radians
             output = "output: "
             for k in range(len(tvecs[i])):
-            	jevois.writeText(outimg, output, 3, k * 10, jevois.YUYV.White, jevois.Font.Font6x10)
-            	output = ""
-            	for val in tvecs[i][k]:
-            		output += str(val * 3.28084)
+                jevois.writeText(outimg, output, 3, k * 10, jevois.YUYV.White, jevois.Font.Font6x10)
+                output = ""
+                for val in tvecs[i][k]:
+                    output += str(val * 3.28084)
             jevois.writeText(outimg, output, 3, (k + 1) * 10, jevois.YUYV.White, jevois.Font.Font6x10)
           
             # Also draw a parallelepiped:
@@ -467,25 +535,6 @@ class FirstPython:
 
         # Map to 6D (inverse perspective):
         (rvecs, tvecs) = self.estimatePose(hlist)
-
-        # Calculate Distance
-        for i in range(len(hlist)):
-        	# -- Find pix distance between 1 and 2
-        	npHull = np.array(hlist[i], dtype=np.float).reshape(4,2,1)
-        	pixWidth = math.sqrt(math.pow(npHull[1,0,0] - npHull[2,0,0], 2) + math.pow(npHull[1,1,0] - npHull[2,1,0], 2))
-
-        	# -- Find full width along pixWidth line
-        	#fullWidth = math.sqrt(math.pow(self.width, 2) + math.pow(((npHull[1,1,0] - npHull[2,1,0]) / (npHull[1,0,0] - npHull[2,0,0]) * (-1 * npHull[1,0,0]) + npHull[1,1,0]) - ((npHull[1,1,0] - npHull[2,1,0]) / (npHull[1,0,0] - npHull[2,0,0]) * (self.width - npHull[2,0,0]) + npHull[1,1,0]), 2))
-
-        	# -- Find radians of pix distance
-        	#fovRad = pixWidth * self.fov / self.width
-        	# -- Plug in
-        	#distance = fovRad #TODO new equation
-
-        	# Convert meters to feet
-        	# distance *= 3.28084
-
-        	#jevois.writeText(outimg, "Distance: {}".format(distance), 3, 50 + i * 10, jevois.YUYV.White, jevois.Font.Font6x10)
 
         # Send all serial messages:
         self.sendAllSerial(w, h, hlist, rvecs, tvecs)
