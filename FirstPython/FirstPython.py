@@ -206,38 +206,40 @@ class FirstPython:
             for k in range(len(hulls[i])):
                 for j in range(len(hulls[nearHull[i]])):
                     # Left
-                    if(centers[i][0] < centers[nearHull[i]][0]):
-                        #cv2.line(imgth, (int(hulls[i][(furthest[0] + 1) % 4,0,0]), int(hulls[i][(furthest[0] + 1) % 4,1,0])), (int(hulls[nearHull[i]][(furthest[1] + 3) % 4,0,0]), int(hulls[nearHull[i]][(furthest[1] + 3) % 4,1,0])), (255, 255, 255, 1))
-                        #cv2.line(imgth, (int(centers[i][0]), int(centers[i][1])), (int(hulls[i][(furthest[0] + 1) % 4,0,0]), int(hulls[i][(furthest[0] + 1) % 4,1,0])), (255, 255, 255), 2)
-                        #cv2.line(imgth, (int(hulls[nearHull[i]][(furthest[1] + 3) % 4,0,0]), int(hulls[nearHull[i]][(furthest[1] + 3) % 4,1,0])), (int(centers[nearHull[i]][0]), int(centers[nearHull[i]][1])), (255, 255, 255), 2)
+                    if(centers[i][0] > centers[nearHull[i]][0]):
 
+                        # Maps Rectangular Corners
+                        # Clockwise
                         corners = (
                             (int(centers[i][0]), int(centers[i][1])),
                             (int(hulls[i][(furthest[0] + 1) % 4,0,0]), int(hulls[i][(furthest[0] + 1) % 4,1,0])),
                             (int(hulls[nearHull[i]][(furthest[1] + 3) % 4,0,0]), int(hulls[nearHull[i]][(furthest[1] + 3) % 4,1,0])),
                             (int(centers[nearHull[i]][0]), int(centers[nearHull[i]][1])),
                             )
+                        #Counter Clockwise
+                        '''
+                        corners = (
+                            (int(centers[i][0]), int(centers[i][1])),
+                            (int(hulls[i][(furthest[0] + 3) % 4,0,0]), int(hulls[i][(furthest[0] + 3) % 4,1,0])),
+                            (int(hulls[nearHull[i]][(furthest[1] + 1) % 4,0,0]), int(hulls[nearHull[i]][(furthest[1] + 1) % 4,1,0])),
+                            (int(centers[nearHull[i]][0]), int(centers[nearHull[i]][1])),
+                            )
+                        '''
 
+                        # Maps U-Shape's corners weighted by Rectangular Corners
                         poly = np.array([
                             [corners[0][0], corners[0][1]],
                             [corners[1][0], corners[1][1]],
                             [corners[2][0], corners[2][1]],
                             [corners[3][0], corners[3][1]],
+                            [int((corners[3][0] * 9 + corners[0][0]) / 10), int((corners[3][1] * 9 + corners[0][1]) / 10)],
+                            [int((corners[2][0] * 9 + corners[1][0]) / 10), int((corners[2][1] * 9 + corners[3][1]) / 10)],
+                            [int((corners[1][0] * 9 + corners[2][0]) / 10), int((corners[1][1] * 9 + corners[0][1]) / 10)],
+                            [int((corners[0][0] * 9 + corners[3][0]) / 10), int((corners[0][1] * 9 + corners[3][1]) / 10)],
                             ],np.int32)
-                        
-                        """polyCenter = [int((int(centers[i][0]) + int(hulls[i][(furthest[0] + 1) % 4,0,0]) + int(hulls[nearHull[i]][(furthest[1] + 3) % 4,0,0]) + int(centers[nearHull[i]][0]))), int((int(centers[i][1]) + int(hulls[i][(furthest[0] + 1) % 4,1,0]) + int(hulls[nearHull[i]][(furthest[1] + 3) % 4,1,0]) + int(centers[nearHull[i]][1])))]
 
-                        poly = np.array([[int(centers[i][0]), int(centers[i][1])], 
-                            [int(hulls[i][(furthest[0] + 1) % 4,0,0]), int(hulls[i][(furthest[0] + 1) % 4,1,0])], 
-                            [int(hulls[nearHull[i]][(furthest[1] + 3) % 4,0,0]), int(hulls[nearHull[i]][(furthest[1] + 3) % 4,1,0])],
-                            [int(centers[nearHull[i]][0]), int(centers[nearHull[i]][1])],
-                            [int((polyCenter[0] + int(hulls[nearHull[i]][(furthest[1] + 3) % 4,0,0]) + int(centers[nearHull[i]][0])) / 6), int((polyCenter[1] + int(centers[i][1]) + int(centers[nearHull[i]][1])) / 6)],
-                            [int((polyCenter[0] + int(hulls[nearHull[i]][(furthest[1] + 3) % 4,0,0]) + int(centers[nearHull[i]][0])) / 6), int((polyCenter[1] + int(hulls[i][(furthest[0] + 1) % 4,1,0]) + int(hulls[nearHull[i]][(furthest[1] + 3) % 4,1,0])) / 6)],
-                            [int((polyCenter[0] + int(centers[i][0]) + int(hulls[i][(furthest[0] + 1) % 4,1,0])) / 6), int((polyCenter[1] + int(hulls[i][(furthest[0] + 1) % 4,1,0]) + int(hulls[nearHull[i]][(furthest[1] + 3) % 4,1,0])) / 6)],
-                            [int((polyCenter[0] + int(centers[i][0]) + int(hulls[i][(furthest[0] + 1) % 4,1,0])) / 6), int((polyCenter[1] + int(centers[i][1]) + int(centers[nearHull[i]][1])) / 6)],
-                            ],np.int32)
-                        """
 
+                        # Draw U-Shaped Map
                         poly = poly.reshape((-1,1,2))
                         cv2.fillPoly(imgth, [poly], (255, 255, 255))
 
@@ -277,7 +279,7 @@ class FirstPython:
             str2 += "A" # Hull area ok
           
             hufill = area / huarea * 100.0
-            #if hufill > self.hullfill: continue
+            if hufill > self.hullfill: continue
             str2 += "F" # Fill is ok
           
             # Check object shape:
