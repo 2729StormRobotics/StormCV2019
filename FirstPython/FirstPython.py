@@ -83,13 +83,14 @@ class FirstPython:
         # S: 0 for unsaturated (whitish discolored object) to 255 for fully saturated (solid color)
         # V: 0 for dark to 255 for maximally bright
         #self.HSVmin = np.array([ 30, 75, 30], dtype=np.uint8)
-        self.HSVmin = np.array([45, 50, 50], dtype=np.uint8)
+        #self.HSVmin = np.array([45, 50, 50], dtype=np.uint8)
+        self.HSVmin = np.array([45, 60, 60], dtype=np.uint8)
         self.HSVmax = np.array([90, 255, 255], dtype=np.uint8)
         # Detected Color Approx: [110.5, 255, 250.92]
 
         # Measure your U-shaped object (in meters) and set its size here:
-        self.owm = 0.2794 # width in meters
-        self.ohm = 0.0762 # height in meters
+        self.owm = 0.2746375 # width in meters
+        self.ohm = 0.07540625 # height in meters
 
         # Camera Values
         self.fov = 1.13446  # field of view in radians
@@ -98,7 +99,7 @@ class FirstPython:
 
         # Other processing parameters:
         self.epsilon = 0.015               # Shape smoothing factor (higher for smoother)
-        self.hullarea = ( 20*20, 300*300 ) # Range of object area (in pixels) to track
+        self.hullarea = ( 5*5, 300*300 ) # Range of object area (in pixels) to track
         self.hullfill = 50                 # Max fill ratio of the convex hull (percent)
         self.ethresh = 900                 # Shape error threshold (lower is stricter for exact shape)
         self.margin = 5                    # Margin from from frame borders (pixels)
@@ -189,17 +190,30 @@ class FirstPython:
             nearHull += (closest[0],)
             #cv2.line(imgth, (int(centers[i][0]), int(centers[i][1])), (int(centers[closest[0]][0]), int(centers[closest[0]][1])), (255, 255, 255), 2)
 
-        # Find furthest points and draw point to point
-        farPoint = ()
+        # Find closest points and draw point to point
+        closePoint = ()
         for i in range(len(hulls)):
-            furthest = (-1, -1, 0.0)
+            closest = (-1, -1, 0.0)
             for k in range(len(hulls[i])):
                 for j in range(len(hulls[nearHull[i]])):
-                    if(furthest[0] == -1 and furthest[1] == -1):
-                        furthest = (k, j, math.pow(hulls[i][k,0,0] - hulls[nearHull[i]][j,0,0],2) + math.pow(hulls[i][k,1,0] - hulls[nearHull[i]][j,1,0],2))
-                    elif(furthest[2] > math.pow(hulls[i][k,0,0] - hulls[nearHull[i]][j,0,0],2) + math.pow(hulls[i][k,1,0] - hulls[nearHull[i]][j,1,0],2)):
-                        furthest = (k, j, math.pow(hulls[i][k,0,0] - hulls[nearHull[i]][j,0,0],2) + math.pow(hulls[i][k,1,0] - hulls[nearHull[i]][j,1,0],2))
-            #cv2.line(imgth, (int(hulls[i][furthest[0],0,0]), int(hulls[i][furthest[0],1,0])), (int(hulls[nearHull[i]][furthest[1],0,0]), int(hulls[nearHull[i]][furthest[1],1,0])), (255, 255, 255), 2)
+                    if(closest[0] == -1 and closest[1] == -1):
+                        closest = (k, j, math.pow(hulls[i][k,0,0] - hulls[nearHull[i]][j,0,0],2) + math.pow(hulls[i][k,1,0] - hulls[nearHull[i]][j,1,0],2))
+                    elif(closest[2] > math.pow(hulls[i][k,0,0] - hulls[nearHull[i]][j,0,0],2) + math.pow(hulls[i][k,1,0] - hulls[nearHull[i]][j,1,0],2)):
+                        closest = (k, j, math.pow(hulls[i][k,0,0] - hulls[nearHull[i]][j,0,0],2) + math.pow(hulls[i][k,1,0] - hulls[nearHull[i]][j,1,0],2))
+            closePoint += ((closest[0], closest[1]),)
+
+        # Finds the bottom point of each target
+        bottomPoint = ()
+        for i in range(len(hulls)):
+            bottomPoint = (-1, 0.0)
+            for k in range(len(hulls[i])):
+                if(bottomPoint[0] == -1 and bottomPoint[1] == 0.0 and (closePoint[i][0] + 2) % 4 != k):
+                    bottomPoint = (k, math.pow(hulls[i][k,0,0] - hulls[i][(closePoint[i][0] + 2) % 4,0,0],2) + math.pow(hulls[i][k,1,0] - hulls[i][(closePoint[i][0] + 2) % 4,1,0],2))
+                elif(bottomPoint[1] > math.pow(hulls[i][k,0,0] - hulls[i][(closePoint[i][0] + 2) % 4,0,0],2) + math.pow(hulls[i][k,1,0] - hulls[i][(closePoint[i][0] + 2) % 4,1,0],2) and (closePoint[i][0] + 2) % 4 != k):
+                    bottomPoint = (k, math.pow(hulls[i][k,0,0] - hulls[i][(closePoint[i][0] + 2) % 4,0,0],2) + math.pow(hulls[i][k,1,0] - hulls[i][(closePoint[i][0] + 2) % 4,1,0],2))
+
+            #jevois.drawLine(outimg, int(hulls[i][bottomPoint[0],0,0]), int(hulls[i][bottomPoint[0],1,0]), 0, 0, 2, jevois.YUYV.MedGreen)
+            #jevois.drawLine(outimg, int(hulls[i][(closePoint[i][0] + 2) % 4,0,0]), int(hulls[i][(closePoint[i][0] + 2) % 4,1,0]), 0, 0, 2, jevois.YUYV.MedGreen)
 
         # Define left and right and find the bottom points
         for i in range(len(hulls)):
@@ -207,37 +221,35 @@ class FirstPython:
                 for j in range(len(hulls[nearHull[i]])):
                     # Left
                     if(centers[i][0] > centers[nearHull[i]][0]):
-
                         # Maps Rectangular Corners
-                        # Clockwise
+                        
                         corners = (
                             (int(centers[i][0]), int(centers[i][1])),
-                            (int(hulls[i][(furthest[0] + 1) % 4,0,0]), int(hulls[i][(furthest[0] + 1) % 4,1,0])),
-                            (int(hulls[nearHull[i]][(furthest[1] + 3) % 4,0,0]), int(hulls[nearHull[i]][(furthest[1] + 3) % 4,1,0])),
+                            (int(hulls[i][(closePoint[i][0] + 1) % 4,0,0]), int(hulls[i][(closePoint[i][0] + 1) % 4,1,0])),
+                            (int(hulls[nearHull[i]][(closePoint[i][1] + 3) % 4,0,0]), int(hulls[nearHull[i]][(closePoint[i][1] + 3) % 4,1,0])),
                             (int(centers[nearHull[i]][0]), int(centers[nearHull[i]][1])),
                             )
-                        #Counter Clockwise
-                        '''
+                        
+                        """
                         corners = (
-                            (int(centers[i][0]), int(centers[i][1])),
-                            (int(hulls[i][(furthest[0] + 3) % 4,0,0]), int(hulls[i][(furthest[0] + 3) % 4,1,0])),
-                            (int(hulls[nearHull[i]][(furthest[1] + 1) % 4,0,0]), int(hulls[nearHull[i]][(furthest[1] + 1) % 4,1,0])),
-                            (int(centers[nearHull[i]][0]), int(centers[nearHull[i]][1])),
+                            (hulls[i][(closePoint[i][0] + 3) % 4,0,0], hulls[i][(closePoint[i][0] + 3) % 4,1,0]),
+                            (hulls[i][(closePoint[i][0] + 1) % 4,0,0], hulls[i][(closePoint[i][0] + 1) % 4,1,0]),
+                            (hulls[nearHull[i]][(closePoint[i][1] + 3) % 4,0,0], hulls[nearHull[i]][(closePoint[i][1] + 3) % 4,1,0]),
+                            (hulls[nearHull[i]][(closePoint[i][1] + 1) % 4,0,0], hulls[nearHull[i]][(closePoint[i][1] + 1) % 4,1,0]),
                             )
-                        '''
+                        """
 
                         # Maps U-Shape's corners weighted by Rectangular Corners
                         poly = np.array([
-                            [corners[0][0], corners[0][1]],
-                            [corners[1][0], corners[1][1]],
-                            [corners[2][0], corners[2][1]],
-                            [corners[3][0], corners[3][1]],
+                            [int(corners[0][0]), int(corners[0][1])],
+                            [int(corners[1][0]), int(corners[1][1])],
+                            [int(corners[2][0]), int(corners[2][1])],
+                            [int(corners[3][0]), int(corners[3][1])],
                             [int((corners[3][0] * 9 + corners[0][0]) / 10), int((corners[3][1] * 9 + corners[0][1]) / 10)],
                             [int((corners[2][0] * 9 + corners[1][0]) / 10), int((corners[2][1] * 9 + corners[3][1]) / 10)],
                             [int((corners[1][0] * 9 + corners[2][0]) / 10), int((corners[1][1] * 9 + corners[0][1]) / 10)],
                             [int((corners[0][0] * 9 + corners[3][0]) / 10), int((corners[0][1] * 9 + corners[3][1]) / 10)],
                             ],np.int32)
-
 
                         # Draw U-Shaped Map
                         poly = poly.reshape((-1,1,2))
@@ -396,10 +408,12 @@ class FirstPython:
             i = axis * math.sin(theta)
             q = (r, i[0], i[1], i[2])
 
-            jevois.sendSerial("D3 {} {} {} {} {} {} {} {} {} {} FIRST".
-                              format(np.asscalar(tv[0]), np.asscalar(tv[1]), np.asscalar(tv[2]),  # position
-                                     self.owm, self.ohm, 1.0,                                     # size
-                                     r, np.asscalar(i[0]), np.asscalar(i[1]), np.asscalar(i[2]))) # pose
+            #jevois.sendSerial("D3 {} {} {} {} {} {} {} {} {} {} FIRST".
+            #                  format(np.asscalar(tv[0]), np.asscalar(tv[1]), np.asscalar(tv[2]),  # position
+            #                         self.owm, self.ohm, 1.0,                                     # size
+            #                         r, np.asscalar(i[0]), np.asscalar(i[1]), np.asscalar(i[2]))) # pose
+            jevois.sendSerial("{} {} {}".
+                format(np.asscalar(tv[0]) * 3.28084, np.asscalar(tv[1]) * 3.28084, np.asscalar(tv[2]) * 3.28084))
             idx += 1
                               
     # ###################################################################################################
