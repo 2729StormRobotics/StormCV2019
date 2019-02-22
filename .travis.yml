@@ -11,8 +11,8 @@ python:
   - "3.7-dev"
   - "3.8-dev"
 
-virtualenv:
-  system_site_packages: true
+# virtualenv:
+#   system_site_packages: true
   
 addons:
   sonarcloud:
