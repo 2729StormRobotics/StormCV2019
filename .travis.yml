@@ -2,9 +2,9 @@ dist: xenial
 
 language: python
 
-python:
-  - "3.6.5"
-  - "3.7.1"
+#python:
+#  - "3.6.5"
+#  - "3.7.1"
 
 virtualenv:
   system_site_packages: true
@@ -15,12 +15,12 @@ addons:
     token:
       secure: "biKHWJ3uSdcahg+2mkJ6BNqyXtNh+CQ19LScfgaSInReXxUdrM864gLXkglv6Iu15nIcqPiNjG4fy9uh85p44ZFBl1NRsKLsKnLQ5AlZ/33xQoRVXrF/7bQevT3JvmrR+LwYnT90YQtsbRWlBUIdHsRbLTLoVkRUjmm7nbZE5ehlmJCGvkl/aqEWlQPopxO9OFgQRI8ZJmWsG/+tfrYIgzGP8xc0ohichDZMGcmegQAHA3pd9cbdHGd7JWOOU3usib13uY9WPF3qrzloMlQKeKmfTDd+GAarzABba0C/X9ZXUdWjZgHgYz1Vxkai02dt5VauFvnwFEGfqAqUAsXjPeRhAkxZEIaICeXBRiLSIuQq7CcUX0NDVOH3N25GYatqKbhHKFvNeCUV/FOmxkRILYTcCni4IKaDvg1g1uM0fGiBpebTWQ+evtjsJGgVlW1EG0kpyvsT7y20o0e9Pq596SGqvPLlKPn9aUCeTtha7IVPxBtFmqUq3B1qnMOXQuJbf/iF2Go59xkj373gyrw/vZk5etbNe1MnmtbBb/sFmFeSEi2IN1hcnQjcQ+APBCDzPiaDxsG7ut5N0sfprdTR/lKZpulyb4JVftTnEzKxOTZsU4NPAftn0hmr7lv8ud8RoenLazXyaSLJVuN+kQUa6OYpz8beKlBcNu/0zdjkOOc="
 
-before_install:
-  - sudo apt-key adv --keyserver keyserver.ubuntu.com --recv-keys DD24C027 -y
-  - sudo add-apt-repository -y "deb http://jevois.usc.edu/apt xenial main"
-  - sudo apt update -q
-  - sudo apt upgrade -y
-  - sudo apt install -y jevois-sdk-dev
+#before_install:
+#  - sudo apt-key adv --keyserver keyserver.ubuntu.com --recv-keys DD24C027 -y
+#  - sudo add-apt-repository -y "deb http://jevois.usc.edu/apt xenial main"
+#  - sudo apt update -q
+#  - sudo apt upgrade -y
+#  - sudo apt install -y jevois-sdk-dev
 
 script:
   - sonar-scanner
