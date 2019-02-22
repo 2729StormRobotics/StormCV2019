@@ -2,9 +2,9 @@ dist: xenial
 
 language: python
 
-#python:
-#  - "3.6.5"
-#  - "3.7.1"
+# python:
+#   - "3.6.5"
+#   - "3.7.1"
 
 virtualenv:
   system_site_packages: true
@@ -13,14 +13,14 @@ addons:
   sonarcloud:
     organization: storm-robotics-2729-github
     token:
-      secure: "biKHWJ3uSdcahg+2mkJ6BNqyXtNh+CQ19LScfgaSInReXxUdrM864gLXkglv6Iu15nIcqPiNjG4fy9uh85p44ZFBl1NRsKLsKnLQ5AlZ/33xQoRVXrF/7bQevT3JvmrR+LwYnT90YQtsbRWlBUIdHsRbLTLoVkRUjmm7nbZE5ehlmJCGvkl/aqEWlQPopxO9OFgQRI8ZJmWsG/+tfrYIgzGP8xc0ohichDZMGcmegQAHA3pd9cbdHGd7JWOOU3usib13uY9WPF3qrzloMlQKeKmfTDd+GAarzABba0C/X9ZXUdWjZgHgYz1Vxkai02dt5VauFvnwFEGfqAqUAsXjPeRhAkxZEIaICeXBRiLSIuQq7CcUX0NDVOH3N25GYatqKbhHKFvNeCUV/FOmxkRILYTcCni4IKaDvg1g1uM0fGiBpebTWQ+evtjsJGgVlW1EG0kpyvsT7y20o0e9Pq596SGqvPLlKPn9aUCeTtha7IVPxBtFmqUq3B1qnMOXQuJbf/iF2Go59xkj373gyrw/vZk5etbNe1MnmtbBb/sFmFeSEi2IN1hcnQjcQ+APBCDzPiaDxsG7ut5N0sfprdTR/lKZpulyb4JVftTnEzKxOTZsU4NPAftn0hmr7lv8ud8RoenLazXyaSLJVuN+kQUa6OYpz8beKlBcNu/0zdjkOOc="
+      secure: "RHIRr9FlkL3eGC5FLwGpWKj/9LMauir0qa/qjWfDSOB59wJ/v6bi2Dh8xZ3cnjIexuFTWYLM9uJEEQqKXuvtN4tqPZrLK31vzhXL/NFwWX76419MnZ1pfZQQITxAOglWW0Rq9nHZmSAy+4XIb50DoLn04xAOIYxmwL4pubc4jxIB2hKxdqZuEXWvZOJcjwT/3peRA4nhJhg/Rxc1yKB4oJ6rLX74Z839smJBgtnryJ3lht3tWb1TmCArEdlnpbZPrPtBBnoxx+L/ckLEkRMFKwxHDFQ4IiJPobuaZOS/SmSTa+T/QqQr0bK8ChVbHWA7FrWj//2WRJLumTqpoSLjp6FWHGK9mHCz+IGVY3wXN84KRhLCIcfErjOStgtyfRZzuadHmoy49V8n2B6IMRgvKfe4Uw0jUjS9oTuQ+vSNnxg8O82ELq5LxU84Y+TgUmYY76rCdG4lJbH7DmxvJaSXdIzy9lnsnmW14nnb1SjkaIMQzE0ZtdcMu2wRC0aeGljuXtatciBpbYum6kRT1y0fJoKkxRcNdNJELgfLm+2pQt5Iw+uCDofoo08GE33VHaDMkz9AuHZXdHHqkm1GKCwmWhuLxxf4BEokLObuYqK6D59QhdVjAPY99+4imB4qkDrCl+OVlSw7NwMdzCjijElEQSK2gCQNAcM/s0ejXTXw1R8="
 
-#before_install:
-#  - sudo apt-key adv --keyserver keyserver.ubuntu.com --recv-keys DD24C027 -y
-#  - sudo add-apt-repository -y "deb http://jevois.usc.edu/apt xenial main"
-#  - sudo apt update -q
-#  - sudo apt upgrade -y
-#  - sudo apt install -y jevois-sdk-dev
+# before_install:
+#   - sudo apt-key adv --keyserver keyserver.ubuntu.com --recv-keys DD24C027 -y
+#   - sudo add-apt-repository -y "deb http://jevois.usc.edu/apt xenial main"
+#   - sudo apt update -q
+#   - sudo apt upgrade -y
+#   - sudo apt install -y jevois-sdk-dev
 
 script:
   - sonar-scanner
