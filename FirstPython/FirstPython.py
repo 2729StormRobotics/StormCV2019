@@ -74,6 +74,7 @@ import math # for cos, sin, etc
 # @ingroup modules
 class FirstPython:
     # ###################################################################################################
+
     ## Constructor
     def __init__(self):
         # HSV color range to use:
@@ -103,6 +104,11 @@ class FirstPython:
         self.hullfill = 50                 # Max fill ratio of the convex hull (percent)
         self.ethresh = 900                 # Shape error threshold (lower is stricter for exact shape)
         self.margin = 5                    # Margin from from frame borders (pixels)
+        self.mToFt = 3.28084               # Conversion of Meters to Feet
+
+        # Averaging variables
+        self.tsum = [[0],[0],[0]]
+        self.sumCount = 0
     
         # Instantiate a JeVois Timer to measure our processing framerate:
         self.timer = jevois.Timer("FirstPython", 100, jevois.LOG_INFO)
@@ -220,7 +226,7 @@ class FirstPython:
             for k in range(len(hulls[i])):
                 for j in range(len(hulls[nearHull[i]])):
                     # Left
-                    if(centers[i][0] > centers[nearHull[i]][0]):
+                    if(centers[i][0] > centers[nearHull[i]][0] and nearHull[nearHull[i]] == i):
                         # Maps Rectangular Corners
                         
                         corners = (
@@ -246,8 +252,8 @@ class FirstPython:
                             [int(corners[2][0]), int(corners[2][1])],
                             [int(corners[3][0]), int(corners[3][1])],
                             [int((corners[3][0] * 9 + corners[0][0]) / 10), int((corners[3][1] * 9 + corners[0][1]) / 10)],
-                            [int((corners[2][0] * 9 + corners[1][0]) / 10), int((corners[2][1] * 9 + corners[3][1]) / 10)],
-                            [int((corners[1][0] * 9 + corners[2][0]) / 10), int((corners[1][1] * 9 + corners[0][1]) / 10)],
+                            [int((corners[2][0] * 9 + corners[0][0]) / 10), int((corners[2][1] * 9 + corners[0][1]) / 10)],
+                            [int((corners[1][0] * 9 + corners[3][0]) / 10), int((corners[1][1] * 9 + corners[3][1]) / 10)],
                             [int((corners[0][0] * 9 + corners[3][0]) / 10), int((corners[0][1] * 9 + corners[3][1]) / 10)],
                             ],np.int32)
 
@@ -413,7 +419,7 @@ class FirstPython:
             #                         self.owm, self.ohm, 1.0,                                     # size
             #                         r, np.asscalar(i[0]), np.asscalar(i[1]), np.asscalar(i[2]))) # pose
             jevois.sendSerial("{} {} {}".
-                format(np.asscalar(tv[0]) * 3.28084, np.asscalar(tv[1]) * 3.28084, np.asscalar(tv[2]) * 3.28084))
+                format(np.asscalar(tv[0]) * self.mToFt, np.asscalar(tv[1]) * self.mToFt, np.asscalar(tv[2]) * self.mToFt))
             idx += 1
                               
     # ###################################################################################################
@@ -447,15 +453,6 @@ class FirstPython:
             jevois.drawLine(outimg, int(imagePoints[0][0,0] + 0.5), int(imagePoints[0][0,1] + 0.5),
                             int(imagePoints[3][0,0] + 0.5), int(imagePoints[3][0,1] + 0.5),
                             2, jevois.YUYV.MedGrey)
-
-            # Output Orientation of Target in Radians
-            output = "output: "
-            for k in range(len(tvecs[i])):
-                jevois.writeText(outimg, output, 3, k * 10, jevois.YUYV.White, jevois.Font.Font6x10)
-                output = ""
-                for val in tvecs[i][k]:
-                    output += str(val * 3.28084)
-            jevois.writeText(outimg, output, 3, (k + 1) * 10, jevois.YUYV.White, jevois.Font.Font6x10)
           
             # Also draw a parallelepiped:
             cubePoints = np.array([ (-hw, -hh, 0.0), (hw, -hh, 0.0), (hw, hh, 0.0), (-hw, hh, 0.0),
@@ -551,6 +548,30 @@ class FirstPython:
 
         # Map to 6D (inverse perspective):
         (rvecs, tvecs) = self.estimatePose(hlist)
+
+        # Average Values
+        for i in range(len(tvecs)):
+            for k in range(len(tvecs[i])):
+                self.tsum[k].append(tvecs[i][k])
+                while(len(self.tsum[k]) > 10):
+                    self.tsum[k].pop(0)
+
+        # Output Average of Target in Radians
+        output = "output: "
+        jevois.writeText(outimg, output, 3, 0, jevois.YUYV.White, jevois.Font.Font6x10)
+        for i in range(len(self.tsum)):
+            output = str(self.mToFt * sum(self.tsum[i]) / len(self.tsum[i]))
+            jevois.writeText(outimg, output, 3, (i + 1) * 10, jevois.YUYV.White, jevois.Font.Font6x10)
+
+#        # Output Position of Target in Radians
+#        for i in range(len(tvecs)):
+#            output = "output: "
+#            for k in range(len(tvecs[i])):
+#                jevois.writeText(outimg, output, 3, k * 10, jevois.YUYV.White, jevois.Font.Font6x10)
+#                output = ""
+#                for val in tvecs[i][k]:
+#                    output += str(val * self.mToFt)
+#            jevois.writeText(outimg, output, 3, (k + 1) * 10, jevois.YUYV.White, jevois.Font.Font6x10)
 
         # Send all serial messages:
         self.sendAllSerial(w, h, hlist, rvecs, tvecs)
