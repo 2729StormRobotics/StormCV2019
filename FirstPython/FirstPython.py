@@ -109,6 +109,9 @@ class FirstPython:
         # Averaging variables
         self.tsum = [[0],[0],[0]]
         self.sumCount = 0
+
+        # Targeting variables
+        self.hullCenter = []
     
         # Instantiate a JeVois Timer to measure our processing framerate:
         self.timer = jevois.Timer("FirstPython", 100, jevois.LOG_INFO)
@@ -132,6 +135,7 @@ class FirstPython:
     # ###################################################################################################
     ## Detect objects within our HSV range
     def detect(self, imgbgr, outimg = None):
+        self.hullCenter = []
         maxn = 5 # max number of objects we will consider
         h, w, chans = imgbgr.shape
 
@@ -145,7 +149,7 @@ class FirstPython:
 
         # Isolate pixels inside our desired HSV range:
         imgth = cv2.inRange(imghsv, self.HSVmin, self.HSVmax)
-        str = "H={}-{} S={}-{} V={}-{} ".format(self.HSVmin[0], self.HSVmax[0], self.HSVmin[1],
+        outstr = "H={}-{} S={}-{} V={}-{} ".format(self.HSVmin[0], self.HSVmax[0], self.HSVmin[1],
                                                 self.HSVmax[1], self.HSVmin[2], self.HSVmax[2])
 
         # Create structuring elements for morpho maths:
@@ -220,15 +224,16 @@ class FirstPython:
 
             #jevois.drawLine(outimg, int(hulls[i][bottomPoint[0],0,0]), int(hulls[i][bottomPoint[0],1,0]), 0, 0, 2, jevois.YUYV.MedGreen)
             #jevois.drawLine(outimg, int(hulls[i][(closePoint[i][0] + 2) % 4,0,0]), int(hulls[i][(closePoint[i][0] + 2) % 4,1,0]), 0, 0, 2, jevois.YUYV.MedGreen)
-
         # Define left and right and find the bottom points
+        testVal = 0
         for i in range(len(hulls)):
             for k in range(len(hulls[i])):
                 for j in range(len(hulls[nearHull[i]])):
                     # Left
                     if(centers[i][0] > centers[nearHull[i]][0] and nearHull[nearHull[i]] == i):
+                        self.hullCenter += [(centers[i][0] + centers[nearHull[i]][0]) / 2, (centers[i][1] + centers[nearHull[i]][1]) / 2],
+
                         # Maps Rectangular Corners
-                        
                         corners = (
                             (int(centers[i][0]), int(centers[i][1])),
                             (int(hulls[i][(closePoint[i][0] + 1) % 4,0,0]), int(hulls[i][(closePoint[i][0] + 1) % 4,1,0])),
@@ -261,11 +266,14 @@ class FirstPython:
                         poly = poly.reshape((-1,1,2))
                         cv2.fillPoly(imgth, [poly], (255, 255, 255))
 
+                        testVal += 1
+        jevois.writeText(outimg, str(testVal), 20, 100, jevois.YUYV.White, jevois.Font.Font6x10)
+
         #!!!-- End Mod --!!!#
 
         # Detect objects by finding contours:
         contours, hierarchy = cv2.findContours(imgth, cv2.RETR_CCOMP, cv2.CHAIN_APPROX_SIMPLE)
-        str += "N={} ".format(len(contours))
+        outstr += "N={} ".format(len(contours))
 
         # Only consider the 5 biggest objects by area:
         contours = sorted(contours, key = cv2.contourArea, reverse = True)[:maxn]
@@ -368,7 +376,7 @@ class FirstPython:
         # Display any results requested by the users:
         if outimg is not None and outimg.valid():
             if (outimg.width == w * 2): jevois.pasteGreyToYUYV(imgth, outimg, w, 0)
-            jevois.writeText(outimg, str + beststr2, 3, h+1, jevois.YUYV.White, jevois.Font.Font6x10)
+            jevois.writeText(outimg, outstr + beststr2, 3, h+1, jevois.YUYV.White, jevois.Font.Font6x10)
 
         return hlist
 
@@ -418,8 +426,8 @@ class FirstPython:
             #                  format(np.asscalar(tv[0]), np.asscalar(tv[1]), np.asscalar(tv[2]),  # position
             #                         self.owm, self.ohm, 1.0,                                     # size
             #                         r, np.asscalar(i[0]), np.asscalar(i[1]), np.asscalar(i[2]))) # pose
-            jevois.sendSerial("{} {} {}".
-                format(np.asscalar(tv[0]) * self.mToFt, np.asscalar(tv[1]) * self.mToFt, np.asscalar(tv[2]) * self.mToFt))
+            jevois.sendSerial("{} {}".
+                format(np.asscalar(tv[0]) * self.mToFt, np.asscalar(tv[2]) * self.mToFt))
             idx += 1
                               
     # ###################################################################################################
@@ -435,8 +443,10 @@ class FirstPython:
         for obj in hlist:
             # skip those for which solvePnP failed:
             if np.array_equal(rvecs[i], empty):
-                i += 1
-                continue
+            	i += 1
+            	continue
+
+            jevois.writeText(outimg, str(i), 3, 100 + 10 * i, jevois.YUYV.White, jevois.Font.Font6x10)
             
             # Project axis points:
             axisPoints = np.array([ (0.0, 0.0, 0.0), (hw, 0.0, 0.0), (0.0, hh, 0.0), (0.0, 0.0, dd) ])
@@ -488,6 +498,7 @@ class FirstPython:
             jevois.drawLine(outimg, int(cu[3][0,0]), int(cu[3][0,1]), int(cu[7][0,0]), int(cu[7][0,1]),
                             1, jevois.YUYV.LightGreen)
 
+            jevois.drawDisk(outimg, int(self.hullCenter[i][0]), int(self.hullCenter[i][1]), 10, jevois.YUYV.MedPurple)
             i += 1
 
     # ###################################################################################################
@@ -563,15 +574,7 @@ class FirstPython:
             output = str(self.mToFt * sum(self.tsum[i]) / len(self.tsum[i]))
             jevois.writeText(outimg, output, 3, (i + 1) * 10, jevois.YUYV.White, jevois.Font.Font6x10)
 
-#        # Output Position of Target in Radians
-#        for i in range(len(tvecs)):
-#            output = "output: "
-#            for k in range(len(tvecs[i])):
-#                jevois.writeText(outimg, output, 3, k * 10, jevois.YUYV.White, jevois.Font.Font6x10)
-#                output = ""
-#                for val in tvecs[i][k]:
-#                    output += str(val * self.mToFt)
-#            jevois.writeText(outimg, output, 3, (k + 1) * 10, jevois.YUYV.White, jevois.Font.Font6x10)
+        # Target the hull closest to the center of the screen
 
         # Send all serial messages:
         self.sendAllSerial(w, h, hlist, rvecs, tvecs)
