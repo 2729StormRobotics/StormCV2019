@@ -136,7 +136,7 @@ class FirstPython:
     ## Detect objects within our HSV range
     def detect(self, imgbgr, outimg = None):
         self.hullCenter = []
-        maxn = 5 # max number of objects we will consider
+        maxn = 9 # max number of objects we will consider
         h, w, chans = imgbgr.shape
 
         # Draw test line
@@ -187,18 +187,23 @@ class FirstPython:
         # Reset Image
         imgth = cv2.inRange(imghsv, np.array([122, 122, 122], dtype=np.uint8), np.array([122, 122, 122], dtype=np.uint8))
 
-        # Find closest hull and draw center to center
+        # Find closest hull
         nearHull = ()
         for i in range(len(hulls)):
             closest = (-1, 0.0)
             for k in range(len(hulls)):
                 if(i != k):
+                    #if(closest[0] == -1):
+                    #    closest = (k,math.pow(centers[i][0] - centers[closest[0]][0], 2) + math.pow(centers[i][1] - centers[closest[0]][1], 2))
+                    #elif(closest[1] < (math.pow(centers[i][0] - centers[closest[0]][0], 2) + math.pow(centers[i][1] - centers[closest[0]][1], 2))):
+                    #    closest = (k,math.pow(centers[i][0] - centers[closest[0]][0], 2) + math.pow(centers[i][1] - centers[closest[0]][1], 2))
+
                     if(closest[0] == -1):
-                        closest = (k,math.pow(centers[i][0] - centers[closest[0]][0], 2) + math.pow(centers[i][1] - centers[closest[0]][1], 2))
-                    elif(closest[1] < (math.pow(centers[i][0] - centers[closest[0]][0], 2) + math.pow(centers[i][1] - centers[closest[0]][1], 2))):
-                        closest = (k,math.pow(centers[i][0] - centers[closest[0]][0], 2) + math.pow(centers[i][1] - centers[closest[0]][1], 2))
+                    	closest = (k,math.pow(centers[i][0] - centers[k][0], 2) + math.pow(centers[i][1] - centers[k][1], 2))
+                    elif(closest[1] > (math.pow(centers[i][0] - centers[k][0], 2) + math.pow(centers[i][1] - centers[k][1], 2))):
+                        closest = (k,math.pow(centers[i][0] - centers[k][0], 2) + math.pow(centers[i][1] - centers[k][1], 2))
+
             nearHull += (closest[0],)
-            #cv2.line(imgth, (int(centers[i][0]), int(centers[i][1])), (int(centers[closest[0]][0]), int(centers[closest[0]][1])), (255, 255, 255), 2)
 
         # Find closest points and draw point to point
         closePoint = ()
@@ -212,18 +217,35 @@ class FirstPython:
                         closest = (k, j, math.pow(hulls[i][k,0,0] - hulls[nearHull[i]][j,0,0],2) + math.pow(hulls[i][k,1,0] - hulls[nearHull[i]][j,1,0],2))
             closePoint += ((closest[0], closest[1]),)
 
-        # Finds the bottom point of each target
-        bottomPoint = ()
+        # Finds the two bottom point of each target
+        bottomPoints = ()
         for i in range(len(hulls)):
-            bottomPoint = (-1, 0.0)
+            bottomPoint = (-1, 0)
             for k in range(len(hulls[i])):
-                if(bottomPoint[0] == -1 and bottomPoint[1] == 0.0 and (closePoint[i][0] + 2) % 4 != k):
-                    bottomPoint = (k, math.pow(hulls[i][k,0,0] - hulls[i][(closePoint[i][0] + 2) % 4,0,0],2) + math.pow(hulls[i][k,1,0] - hulls[i][(closePoint[i][0] + 2) % 4,1,0],2))
-                elif(bottomPoint[1] > math.pow(hulls[i][k,0,0] - hulls[i][(closePoint[i][0] + 2) % 4,0,0],2) + math.pow(hulls[i][k,1,0] - hulls[i][(closePoint[i][0] + 2) % 4,1,0],2) and (closePoint[i][0] + 2) % 4 != k):
-                    bottomPoint = (k, math.pow(hulls[i][k,0,0] - hulls[i][(closePoint[i][0] + 2) % 4,0,0],2) + math.pow(hulls[i][k,1,0] - hulls[i][(closePoint[i][0] + 2) % 4,1,0],2))
+            	if(bottomPoint[0] == -1):
+            		bottomPoint = (k, hulls[i][k,1,0])
+            	elif(bottomPoint[1] < hulls[i][k,1,0]):
+            		bottomPoint = (k, hulls[i][k,1,0])
+            bottomPoints += ((i, bottomPoint[0]),)
 
-            #jevois.drawLine(outimg, int(hulls[i][bottomPoint[0],0,0]), int(hulls[i][bottomPoint[0],1,0]), 0, 0, 2, jevois.YUYV.MedGreen)
-            #jevois.drawLine(outimg, int(hulls[i][(closePoint[i][0] + 2) % 4,0,0]), int(hulls[i][(closePoint[i][0] + 2) % 4,1,0]), 0, 0, 2, jevois.YUYV.MedGreen)
+        #for i in range(len(hulls)):
+        #    bottomPoint = (-1, 0)
+        #    for k in range(len(hulls[i])):
+        #    	#if(not already selected)
+        #    		if(bottomPoint[0] == -1):
+        #    			bottomPoint = (k, hulls[i][k,1,0])
+        #    		elif(bottomPoint[1] < hulls[i][k,1,0]):
+        #    			bottomPoint = (k, hulls[i][k,1,0])
+        #    bottomPoints += ((i, bottomPoint[0]),)
+
+        for i in range(len(bottomPoints)):
+        	jevois.drawDisk(outimg, int(hulls[bottomPoints[i][0]][bottomPoints[i][1],0,0]), int(hulls[bottomPoints[i][0]][bottomPoints[i][1],1,0]), 5, jevois.YUYV.MedGreen)
+
+        #for i in range(len(hulls)):
+        #	if(nearHull[nearHull[i]] == i):
+        #		jevois.drawLine(outimg, int(centers[i][0]), int(centers[i][1]), int(centers[nearHull[i]][0]), int(centers[nearHull[i]][1]), 2, jevois.YUYV.MedGreen)
+        #	jevois.drawLine(outimg, int(centers[i][0]), int(centers[i][1]), int(centers[nearHull[i]][0]), int(centers[nearHull[i]][1]), 1, jevois.YUYV.MedPurple)
+
         # Define left and right and find the bottom points
         testVal = 0
         for i in range(len(hulls)):
@@ -231,6 +253,7 @@ class FirstPython:
                 for j in range(len(hulls[nearHull[i]])):
                     # Left
                     if(centers[i][0] > centers[nearHull[i]][0] and nearHull[nearHull[i]] == i):
+                    	#if(centers[i][0] > centers[nearHull[i]][0]):
                         self.hullCenter += [(centers[i][0] + centers[nearHull[i]][0]) / 2, (centers[i][1] + centers[nearHull[i]][1]) / 2],
 
                         # Maps Rectangular Corners
@@ -498,7 +521,7 @@ class FirstPython:
             jevois.drawLine(outimg, int(cu[3][0,0]), int(cu[3][0,1]), int(cu[7][0,0]), int(cu[7][0,1]),
                             1, jevois.YUYV.LightGreen)
 
-            jevois.drawDisk(outimg, int(self.hullCenter[i][0]), int(self.hullCenter[i][1]), 10, jevois.YUYV.MedPurple)
+            #jevois.drawDisk(outimg, int(self.hullCenter[i][0]), int(self.hullCenter[i][1]), 10, jevois.YUYV.MedPurple)
             i += 1
 
     # ###################################################################################################
