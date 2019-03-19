@@ -99,8 +99,8 @@ class FirstPython:
         self.height = 480   # height of resolution
 
         # Other processing parameters:
-        self.epsilon = 0.015               # Shape smoothing factor (higher for smoother)
-        self.hullarea = ( 5*5, 300*300 ) # Range of object area (in pixels) to track
+        self.epsilon = 0.020               # Shape smoothing factor (higher for smoother)
+        self.hullarea = ( 2*5, 300*300 ) # Range of object area (in pixels) to track
         self.hullfill = 50                 # Max fill ratio of the convex hull (percent)
         self.ethresh = 900                 # Shape error threshold (lower is stricter for exact shape)
         self.margin = 5                    # Margin from from frame borders (pixels)
@@ -175,7 +175,8 @@ class FirstPython:
             # Outline hull and find center
             huarea = cv2.contourArea(hull, oriented = False)
             if len(hull) == 4 and huarea > self.hullarea[0] and huarea < self.hullarea[1]:
-                npHull = np.array(hull, dtype=int).reshape(4,2,1)
+                #npHull = np.array(hull, dtype=int).reshape(4,2,1)
+                npHull = np.array(hull, dtype=int).reshape(len(hull),2,1)
                 jevois.drawLine(outimg, int(npHull[0,0,0]), int(npHull[0,1,0]), int(npHull[1,0,0]), int(npHull[1,1,0]), 2, jevois.YUYV.MedPurple)
                 jevois.drawLine(outimg, int(npHull[1,0,0]), int(npHull[1,1,0]), int(npHull[2,0,0]), int(npHull[2,1,0]), 2, jevois.YUYV.MedPurple)
                 jevois.drawLine(outimg, int(npHull[2,0,0]), int(npHull[2,1,0]), int(npHull[3,0,0]), int(npHull[3,1,0]), 2, jevois.YUYV.MedPurple)
@@ -187,21 +188,44 @@ class FirstPython:
         # Reset Image
         imgth = cv2.inRange(imghsv, np.array([122, 122, 122], dtype=np.uint8), np.array([122, 122, 122], dtype=np.uint8))
 
+        # Finds the two bottom point of each target
+        bottomPoints = ()
+        for i in range(len(hulls)):
+            bottomPoint = (-1, 0)
+            secondPoint = (-1, 0)
+            for k in range(len(hulls[i])):
+                if(bottomPoint[0] == -1):
+                    bottomPoint = (k, hulls[i][k,1,0])
+                elif(bottomPoint[1] < hulls[i][k,1,0]):
+                    bottomPoint = (k, hulls[i][k,1,0])
+
+            for k in range(len(hulls[i])):
+                if(k != bottomPoint[0]):
+                    if(secondPoint[0] == -1):
+                        secondPoint = (k, hulls[i][k,1,0])
+                    elif(secondPoint[1] < hulls[i][k,1,0]):
+                        secondPoint = (k, hulls[i][k,1,0])
+
+            if(abs(centers[i][0] - hulls[i][bottomPoint[0],0,0]) > abs(centers[i][0] - hulls[i][secondPoint[0],0,0])):
+                bottomPoints += ((i, bottomPoint[0]),)
+            else:
+                bottomPoints += ((i, secondPoint[0]),)
+
+        for i in range(len(bottomPoints)):
+            jevois.drawDisk(outimg, int(hulls[bottomPoints[i][0]][bottomPoints[i][1],0,0]), int(hulls[bottomPoints[i][0]][bottomPoints[i][1],1,0]), 2, jevois.YUYV.MedGreen)
+
         # Find closest hull
         nearHull = ()
         for i in range(len(hulls)):
             closest = (-1, 0.0)
             for k in range(len(hulls)):
                 if(i != k):
-                    #if(closest[0] == -1):
-                    #    closest = (k,math.pow(centers[i][0] - centers[closest[0]][0], 2) + math.pow(centers[i][1] - centers[closest[0]][1], 2))
-                    #elif(closest[1] < (math.pow(centers[i][0] - centers[closest[0]][0], 2) + math.pow(centers[i][1] - centers[closest[0]][1], 2))):
-                    #    closest = (k,math.pow(centers[i][0] - centers[closest[0]][0], 2) + math.pow(centers[i][1] - centers[closest[0]][1], 2))
-
-                    if(closest[0] == -1):
-                    	closest = (k,math.pow(centers[i][0] - centers[k][0], 2) + math.pow(centers[i][1] - centers[k][1], 2))
-                    elif(closest[1] > (math.pow(centers[i][0] - centers[k][0], 2) + math.pow(centers[i][1] - centers[k][1], 2))):
-                        closest = (k,math.pow(centers[i][0] - centers[k][0], 2) + math.pow(centers[i][1] - centers[k][1], 2))
+                    if((hulls[bottomPoints[i][0]][bottomPoints[i][1],0,0] - centers[i][0]) * (hulls[bottomPoints[k][0]][bottomPoints[k][1],0,0] - centers[k][0])) < 0:
+                        if(centers[i][0] < centers[k][0] and hulls[bottomPoints[i][0]][bottomPoints[i][1],0,0] < centers[i][0]) or (centers[i][0] > centers[k][0] and hulls[bottomPoints[i][0]][bottomPoints[i][1],0,0] > centers[i][0]):
+                            if(closest[0] == -1):
+                                closest = (k,math.pow(centers[i][0] - centers[k][0], 2) + math.pow(centers[i][1] - centers[k][1], 2))
+                            elif(closest[1] > (math.pow(centers[i][0] - centers[k][0], 2) + math.pow(centers[i][1] - centers[k][1], 2))):
+                                closest = (k,math.pow(centers[i][0] - centers[k][0], 2) + math.pow(centers[i][1] - centers[k][1], 2))
 
             nearHull += (closest[0],)
 
@@ -217,45 +241,31 @@ class FirstPython:
                         closest = (k, j, math.pow(hulls[i][k,0,0] - hulls[nearHull[i]][j,0,0],2) + math.pow(hulls[i][k,1,0] - hulls[nearHull[i]][j,1,0],2))
             closePoint += ((closest[0], closest[1]),)
 
-        # Finds the two bottom point of each target
-        bottomPoints = ()
+        # Find Average Target Center
         for i in range(len(hulls)):
-            bottomPoint = (-1, 0)
-            for k in range(len(hulls[i])):
-            	if(bottomPoint[0] == -1):
-            		bottomPoint = (k, hulls[i][k,1,0])
-            	elif(bottomPoint[1] < hulls[i][k,1,0]):
-            		bottomPoint = (k, hulls[i][k,1,0])
-            bottomPoints += ((i, bottomPoint[0]),)
+            if(centers[i][0] > centers[nearHull[i]][0] and nearHull[nearHull[i]] == i):
+                self.hullCenter += [(centers[i][0] + centers[nearHull[i]][0]) / 2, (centers[i][1] + centers[nearHull[i]][1]) / 2],
 
-        #for i in range(len(hulls)):
-        #    bottomPoint = (-1, 0)
-        #    for k in range(len(hulls[i])):
-        #    	#if(not already selected)
-        #    		if(bottomPoint[0] == -1):
-        #    			bottomPoint = (k, hulls[i][k,1,0])
-        #    		elif(bottomPoint[1] < hulls[i][k,1,0]):
-        #    			bottomPoint = (k, hulls[i][k,1,0])
-        #    bottomPoints += ((i, bottomPoint[0]),)
+        # Choose Target Closest to Center of Screen
+        targetHull = (-1, 0)
+        for i in range(len(self.hullCenter)):
+            jevois.drawDisk(outimg, int(self.hullCenter[i][0]), int(self.hullCenter[i][1]), 10, jevois.YUYV.MedPurple)
 
-        for i in range(len(bottomPoints)):
-        	jevois.drawDisk(outimg, int(hulls[bottomPoints[i][0]][bottomPoints[i][1],0,0]), int(hulls[bottomPoints[i][0]][bottomPoints[i][1],1,0]), 5, jevois.YUYV.MedGreen)
+            if(targetHull[0] == -1):
+                targetHull = (i, abs(self.hullCenter[i][0] - outimg.width / 4))
+            elif(targetHull[1] > abs(self.hullCenter[i][0] - outimg.width / 4)):
+                targetHull = (i, abs(self.hullCenter[i][0] - outimg.width / 4))
 
-        #for i in range(len(hulls)):
-        #	if(nearHull[nearHull[i]] == i):
-        #		jevois.drawLine(outimg, int(centers[i][0]), int(centers[i][1]), int(centers[nearHull[i]][0]), int(centers[nearHull[i]][1]), 2, jevois.YUYV.MedGreen)
-        #	jevois.drawLine(outimg, int(centers[i][0]), int(centers[i][1]), int(centers[nearHull[i]][0]), int(centers[nearHull[i]][1]), 1, jevois.YUYV.MedPurple)
+        jevois.drawDisk(outimg, int(self.hullCenter[targetHull[0]][0]), int(self.hullCenter[targetHull[0]][1]), 5, jevois.YUYV.MedGreen)
 
         # Define left and right and find the bottom points
+        
         testVal = 0
         for i in range(len(hulls)):
             for k in range(len(hulls[i])):
                 for j in range(len(hulls[nearHull[i]])):
                     # Left
                     if(centers[i][0] > centers[nearHull[i]][0] and nearHull[nearHull[i]] == i):
-                    	#if(centers[i][0] > centers[nearHull[i]][0]):
-                        self.hullCenter += [(centers[i][0] + centers[nearHull[i]][0]) / 2, (centers[i][1] + centers[nearHull[i]][1]) / 2],
-
                         # Maps Rectangular Corners
                         corners = (
                             (int(centers[i][0]), int(centers[i][1])),
@@ -263,15 +273,6 @@ class FirstPython:
                             (int(hulls[nearHull[i]][(closePoint[i][1] + 3) % 4,0,0]), int(hulls[nearHull[i]][(closePoint[i][1] + 3) % 4,1,0])),
                             (int(centers[nearHull[i]][0]), int(centers[nearHull[i]][1])),
                             )
-                        
-                        """
-                        corners = (
-                            (hulls[i][(closePoint[i][0] + 3) % 4,0,0], hulls[i][(closePoint[i][0] + 3) % 4,1,0]),
-                            (hulls[i][(closePoint[i][0] + 1) % 4,0,0], hulls[i][(closePoint[i][0] + 1) % 4,1,0]),
-                            (hulls[nearHull[i]][(closePoint[i][1] + 3) % 4,0,0], hulls[nearHull[i]][(closePoint[i][1] + 3) % 4,1,0]),
-                            (hulls[nearHull[i]][(closePoint[i][1] + 1) % 4,0,0], hulls[nearHull[i]][(closePoint[i][1] + 1) % 4,1,0]),
-                            )
-                        """
 
                         # Maps U-Shape's corners weighted by Rectangular Corners
                         poly = np.array([
