@@ -99,7 +99,7 @@ class FirstPython:
         self.height = 480   # height of resolution
 
         # Other processing parameters:
-        self.epsilon = 0.020               # Shape smoothing factor (higher for smoother)
+        self.epsilon = 0.019               # Shape smoothing factor (higher for smoother)
         self.hullarea = ( 2*5, 300*300 ) # Range of object area (in pixels) to track
         self.hullfill = 50                 # Max fill ratio of the convex hull (percent)
         self.ethresh = 900                 # Shape error threshold (lower is stricter for exact shape)
@@ -244,7 +244,7 @@ class FirstPython:
         # Find Average Target Center
         for i in range(len(hulls)):
             if(centers[i][0] > centers[nearHull[i]][0] and nearHull[nearHull[i]] == i):
-                self.hullCenter += [(centers[i][0] + centers[nearHull[i]][0]) / 2, (centers[i][1] + centers[nearHull[i]][1]) / 2],
+                self.hullCenter += [(centers[i][0] + centers[nearHull[i]][0]) / 2, (centers[i][1] + centers[nearHull[i]][1]) / 2, i],
 
         # Choose Target Closest to Center of Screen
         targetHull = (-1, 0)
@@ -252,16 +252,39 @@ class FirstPython:
             jevois.drawDisk(outimg, int(self.hullCenter[i][0]), int(self.hullCenter[i][1]), 10, jevois.YUYV.MedPurple)
 
             if(targetHull[0] == -1):
-                targetHull = (i, abs(self.hullCenter[i][0] - outimg.width / 4))
+                targetHull = (self.hullCenter[i][2], abs(self.hullCenter[i][0] - outimg.width / 4))
             elif(targetHull[1] > abs(self.hullCenter[i][0] - outimg.width / 4)):
-                targetHull = (i, abs(self.hullCenter[i][0] - outimg.width / 4))
+                targetHull = (self.hullCenter[i][2], abs(self.hullCenter[i][0] - outimg.width / 4))
 
-        jevois.drawDisk(outimg, int(self.hullCenter[targetHull[0]][0]), int(self.hullCenter[targetHull[0]][1]), 5, jevois.YUYV.MedGreen)
+        if(targetHull[0] != -1):
+            jevois.drawLine(outimg, int(centers[targetHull[0]][0]), int(centers[targetHull[0]][1]), int(centers[nearHull[targetHull[0]]][0]), int(centers[nearHull[targetHull[0]]][1]), 2, jevois.YUYV.MedPurple)
+
+            # Maps Rectangular Corners
+            corners  = (
+                (int(centers[targetHull[0]][0]), int(centers[targetHull[0]][1])),
+                (int(hulls[targetHull[0]][(closePoint[targetHull[0]][0] + 1) % 4,0,0]), int(hulls[targetHull[0]][(closePoint[targetHull[0]][0] + 1) % 4,1,0])),
+                (int(hulls[nearHull[targetHull[0]]][(closePoint[targetHull[0]][1] + 3) % 4,0,0]), int(hulls[nearHull[targetHull[0]]][(closePoint[targetHull[0]][1] + 3) % 4,1,0])),
+                (int(centers[nearHull[targetHull[0]]][0]), int(centers[nearHull[targetHull[0]]][1])),
+                )
+
+            # Maps U-Shape's corners weighted by Rectangular Corners
+            poly = np.array([
+                [int(corners[0][0]), int(corners[0][1])],
+                [int(corners[1][0]), int(corners[1][1])],
+                [int(corners[2][0]), int(corners[2][1])],
+                [int(corners[3][0]), int(corners[3][1])],
+                [int((corners[3][0] * 9 + corners[0][0]) / 10), int((corners[3][1] * 9 + corners[0][1]) / 10)],
+                [int((corners[2][0] * 9 + corners[0][0]) / 10), int((corners[2][1] * 9 + corners[0][1]) / 10)],
+                [int((corners[1][0] * 9 + corners[3][0]) / 10), int((corners[1][1] * 9 + corners[3][1]) / 10)],
+                [int((corners[0][0] * 9 + corners[3][0]) / 10), int((corners[0][1] * 9 + corners[3][1]) / 10)],
+                ],np.int32)
+    
+            # Draw U-Shaped Map
+            poly = poly.reshape((-1,1,2))
+            cv2.fillPoly(imgth, [poly], (255, 255, 255))
 
         # Define left and right and find the bottom points
-        
-        testVal = 0
-        for i in range(len(hulls)):
+        """for i in range(len(hulls)):
             for k in range(len(hulls[i])):
                 for j in range(len(hulls[nearHull[i]])):
                     # Left
@@ -289,10 +312,7 @@ class FirstPython:
                         # Draw U-Shaped Map
                         poly = poly.reshape((-1,1,2))
                         cv2.fillPoly(imgth, [poly], (255, 255, 255))
-
-                        testVal += 1
-        jevois.writeText(outimg, str(testVal), 20, 100, jevois.YUYV.White, jevois.Font.Font6x10)
-
+        """
         #!!!-- End Mod --!!!#
 
         # Detect objects by finding contours:
