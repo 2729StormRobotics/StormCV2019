@@ -177,10 +177,10 @@ class FirstPython:
             if len(hull) == 4 and huarea > self.hullarea[0] and huarea < self.hullarea[1]:
                 #npHull = np.array(hull, dtype=int).reshape(4,2,1)
                 npHull = np.array(hull, dtype=int).reshape(len(hull),2,1)
-                jevois.drawLine(outimg, int(npHull[0,0,0]), int(npHull[0,1,0]), int(npHull[1,0,0]), int(npHull[1,1,0]), 2, jevois.YUYV.MedPurple)
-                jevois.drawLine(outimg, int(npHull[1,0,0]), int(npHull[1,1,0]), int(npHull[2,0,0]), int(npHull[2,1,0]), 2, jevois.YUYV.MedPurple)
-                jevois.drawLine(outimg, int(npHull[2,0,0]), int(npHull[2,1,0]), int(npHull[3,0,0]), int(npHull[3,1,0]), 2, jevois.YUYV.MedPurple)
-                jevois.drawLine(outimg, int(npHull[3,0,0]), int(npHull[3,1,0]), int(npHull[0,0,0]), int(npHull[0,1,0]), 2, jevois.YUYV.MedPurple)
+                #jevois.drawLine(outimg, int(npHull[0,0,0]), int(npHull[0,1,0]), int(npHull[1,0,0]), int(npHull[1,1,0]), 2, jevois.YUYV.MedPurple)
+                #jevois.drawLine(outimg, int(npHull[1,0,0]), int(npHull[1,1,0]), int(npHull[2,0,0]), int(npHull[2,1,0]), 2, jevois.YUYV.MedPurple)
+                #jevois.drawLine(outimg, int(npHull[2,0,0]), int(npHull[2,1,0]), int(npHull[3,0,0]), int(npHull[3,1,0]), 2, jevois.YUYV.MedPurple)
+                #jevois.drawLine(outimg, int(npHull[3,0,0]), int(npHull[3,1,0]), int(npHull[0,0,0]), int(npHull[0,1,0]), 2, jevois.YUYV.MedPurple)
 
                 centers += (((npHull[0,0,0] + npHull[1,0,0] + npHull[2,0,0] + npHull[3,0,0]) / 4, (npHull[0,1,0] + npHull[1,1,0] + npHull[2,1,0] + npHull[3,1,0]) / 4),)
                 hulls += (npHull,)
@@ -211,8 +211,8 @@ class FirstPython:
             else:
                 bottomPoints += ((i, secondPoint[0]),)
 
-        for i in range(len(bottomPoints)):
-            jevois.drawDisk(outimg, int(hulls[bottomPoints[i][0]][bottomPoints[i][1],0,0]), int(hulls[bottomPoints[i][0]][bottomPoints[i][1],1,0]), 2, jevois.YUYV.MedGreen)
+        #for i in range(len(bottomPoints)):
+            #jevois.drawDisk(outimg, int(hulls[bottomPoints[i][0]][bottomPoints[i][1],0,0]), int(hulls[bottomPoints[i][0]][bottomPoints[i][1],1,0]), 2, jevois.YUYV.MedGreen)
 
         # Find closest hull
         nearHull = ()
@@ -249,15 +249,15 @@ class FirstPython:
         # Choose Target Closest to Center of Screen
         targetHull = (-1, 0)
         for i in range(len(self.hullCenter)):
-            jevois.drawDisk(outimg, int(self.hullCenter[i][0]), int(self.hullCenter[i][1]), 10, jevois.YUYV.MedPurple)
+            #jevois.drawDisk(outimg, int(self.hullCenter[i][0]), int(self.hullCenter[i][1]), 10, jevois.YUYV.MedPurple)
 
             if(targetHull[0] == -1):
-                targetHull = (self.hullCenter[i][2], abs(self.hullCenter[i][0] - outimg.width / 4))
-            elif(targetHull[1] > abs(self.hullCenter[i][0] - outimg.width / 4)):
-                targetHull = (self.hullCenter[i][2], abs(self.hullCenter[i][0] - outimg.width / 4))
+                targetHull = (self.hullCenter[i][2], abs(self.hullCenter[i][0] - self.width / 4))
+            elif(targetHull[1] > abs(self.hullCenter[i][0] - imghsv.width / 4)):
+                targetHull = (self.hullCenter[i][2], abs(self.hullCenter[i][0] - self.width / 4))
 
         if(targetHull[0] != -1):
-            jevois.drawLine(outimg, int(centers[targetHull[0]][0]), int(centers[targetHull[0]][1]), int(centers[nearHull[targetHull[0]]][0]), int(centers[nearHull[targetHull[0]]][1]), 2, jevois.YUYV.MedPurple)
+            #jevois.drawLine(outimg, int(centers[targetHull[0]][0]), int(centers[targetHull[0]][1]), int(centers[nearHull[targetHull[0]]][0]), int(centers[nearHull[targetHull[0]]][1]), 2, jevois.YUYV.MedPurple)
 
             # Maps Rectangular Corners
             corners  = (
@@ -451,6 +451,10 @@ class FirstPython:
     # ###################################################################################################
     ## Send serial messages, one per object
     def sendAllSerial(self, w, h, hlist, rvecs, tvecs):
+        # To call use following serial commands:
+        # setmapping2 YUYV 640 480 30.0 JeVois FirstPython
+        # streamon
+
         idx = 0
         for c in hlist:
             # Compute quaternion: FIXME need to check!
@@ -466,12 +470,9 @@ class FirstPython:
             i = axis * math.sin(theta)
             q = (r, i[0], i[1], i[2])
 
-            #jevois.sendSerial("D3 {} {} {} {} {} {} {} {} {} {} FIRST".
-            #                  format(np.asscalar(tv[0]), np.asscalar(tv[1]), np.asscalar(tv[2]),  # position
-            #                         self.owm, self.ohm, 1.0,                                     # size
-            #                         r, np.asscalar(i[0]), np.asscalar(i[1]), np.asscalar(i[2]))) # pose
-            jevois.sendSerial("{} {}".
-                format(np.asscalar(tv[0]) * self.mToFt, np.asscalar(tv[2]) * self.mToFt))
+            # Send x and y displacements
+            jevois.sendSerial("{} {} {}".
+                format(np.asscalar(tv[0]) * self.mToFt, np.asscalar(tv[2]) * self.mToFt, np.asscalar(axis[0])))
             idx += 1
                               
     # ###################################################################################################
@@ -548,6 +549,10 @@ class FirstPython:
     # ###################################################################################################
     ## Process function with no USB output
     def processNoUSB(self, inframe):
+        # Test Serial Output
+        #jevois.sendSerial("{} {}".
+        #        format(-1 * self.mToFt, -1 * self.mToFt))
+
         # Get the next camera image (may block until it is captured) as OpenCV BGR:
         imgbgr = inframe.getCvBGR()
         h, w, chans = imgbgr.shape
@@ -629,6 +634,10 @@ class FirstPython:
         # Write frames/s info from our timer into the edge map (NOTE: does not account for output conversion time):
         fps = self.timer.stop()
         jevois.writeText(outimg, fps, 3, h-10, jevois.YUYV.White, jevois.Font.Font6x10)
-    
+
+        # Test Serial Output
+        #jevois.sendSerial("{} {}".
+        #        format(-1 * self.mToFt, -1 * self.mToFt))
+
         # We are done with the output, ready to send it to host over USB:
         outframe.send()
