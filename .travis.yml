@@ -1,25 +1,27 @@
 dist: xenial
 language: python
+git:
+  depth: false
 python:
-- '3.5'
-- '3.6'
-- '3.7'
-- 3.5-dev
-- 3.6-dev
-- 3.7-dev
-- 3.8-dev
+  - "3.5"
+  - "3.6"
+  - "3.7"
+  - 3.5-dev
+  - 3.6-dev
+  - 3.7-dev
+  - 3.8-dev
 addons:
   sonarcloud:
     organization: storm-robotics-2729-github
     token:
       secure: RHIRr9FlkL3eGC5FLwGpWKj/9LMauir0qa/qjWfDSOB59wJ/v6bi2Dh8xZ3cnjIexuFTWYLM9uJEEQqKXuvtN4tqPZrLK31vzhXL/NFwWX76419MnZ1pfZQQITxAOglWW0Rq9nHZmSAy+4XIb50DoLn04xAOIYxmwL4pubc4jxIB2hKxdqZuEXWvZOJcjwT/3peRA4nhJhg/Rxc1yKB4oJ6rLX74Z839smJBgtnryJ3lht3tWb1TmCArEdlnpbZPrPtBBnoxx+L/ckLEkRMFKwxHDFQ4IiJPobuaZOS/SmSTa+T/QqQr0bK8ChVbHWA7FrWj//2WRJLumTqpoSLjp6FWHGK9mHCz+IGVY3wXN84KRhLCIcfErjOStgtyfRZzuadHmoy49V8n2B6IMRgvKfe4Uw0jUjS9oTuQ+vSNnxg8O82ELq5LxU84Y+TgUmYY76rCdG4lJbH7DmxvJaSXdIzy9lnsnmW14nnb1SjkaIMQzE0ZtdcMu2wRC0aeGljuXtatciBpbYum6kRT1y0fJoKkxRcNdNJELgfLm+2pQt5Iw+uCDofoo08GE33VHaDMkz9AuHZXdHHqkm1GKCwmWhuLxxf4BEokLObuYqK6D59QhdVjAPY99+4imB4qkDrCl+OVlSw7NwMdzCjijElEQSK2gCQNAcM/s0ejXTXw1R8=
 before_install:
-- pip install pylint
+  - pip install pylint
 script:
-- sonar-scanner
+  - sonar-scanner
 cache:
   directories:
-  - "$HOME/.sonar/cache"
+    - "$HOME/.sonar/cache"
 env:
   global:
     secure: ak9tBMR+pkGna6LUEaprv7570H8Z75ncHEUAbrpCWKfzf/fJ0e0n2XhncNKwYB+BoZ1ayu0rcJR9PCDXV5tcExlA3mDjJcZM5b1tD5sUttzhjTsNoIerZfFE1LoqBu24uZMU3Axt/J9SykuI3sJ2An4LTHP6hsrqGkw4bqD6LNfLRqkqN2/pRjWSktt9GLhOCrt7qYXRYIdIReT/S8ZGy0yu1YzTErvzS2+mWvMU9IcCrSFRA7QqfD5zP0D6zJDoizqIPsh8LYzLf2LD5ixYqsgjEAkU+IudxB7QpJnFaURPQvNUg4QPZ4a7KCZM6CBtSnAf4pxkHzFRmwAgoVWhhF2LPFiRsr/UwhBi3qjh4BgD8kN4WPrzkR+NmgAXXYWj5hnPunDOyE5nWsUtpZboA1D9QolyT/95Sf7x5eCxprmQmj/14qLEtyFCanB2I0SEV/pV112xXcd/m2q/O/JbfG+rRXtvtFcNV374DCCTZDeQHyVdC1irPIwFBzBQx4sxKqZy1V4/JHz6zqI1THW8K8QIW7l1wCO89T/eON+Uga0ImBaw/6+mN6mnlr2d3vi0LUFSfYkxdzA/EqFmybIzs5iaUn7hTiggPatKCM5oU7gjBVZKqub2vEwo1kT/USlxqwXEqHL8dKav3fqhYm8bneJ5XAzUJ5IB+oDCyt2Rrw0=
