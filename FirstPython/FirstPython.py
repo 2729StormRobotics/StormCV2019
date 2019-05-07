@@ -90,8 +90,8 @@ class FirstPython:
         # Detected Color Approx: [110.5, 255, 250.92]
 
         # Measure your U-shaped object (in meters) and set its size here:
-        self.owm = 0.2746375 # width in meters
-        self.ohm = 0.07540625 # height in meters
+        self.owm = 0.275 # width in meters
+        self.ohm = 0.150 # height in meters
 
         # Camera Values
         self.fov = 1.13446  # field of view in radians
@@ -100,7 +100,7 @@ class FirstPython:
 
         # Other processing parameters:
         self.epsilon = 0.019               # Shape smoothing factor (higher for smoother)
-        self.hullarea = ( 2*5, 300*300 ) # Range of object area (in pixels) to track
+        self.hullarea = ( 10*20, 300*300 )   # Range of object area (in pixels) to track
         self.hullfill = 50                 # Max fill ratio of the convex hull (percent)
         self.ethresh = 900                 # Shape error threshold (lower is stricter for exact shape)
         self.margin = 5                    # Margin from from frame borders (pixels)
@@ -108,10 +108,12 @@ class FirstPython:
 
         # Averaging variables
         self.tsum = [[0],[0],[0]]
+        self.rsum = [[0],[0],[0]]
         self.sumCount = 0
 
         # Targeting variables
         self.hullCenter = []
+        self.targetRatio = (300.0/275.0)   # Ratio between distance of top points and bottom points between two targets
     
         # Instantiate a JeVois Timer to measure our processing framerate:
         self.timer = jevois.Timer("FirstPython", 100, jevois.LOG_INFO)
@@ -253,9 +255,10 @@ class FirstPython:
 
             if(targetHull[0] == -1):
                 targetHull = (self.hullCenter[i][2], abs(self.hullCenter[i][0] - self.width / 4))
-            elif(targetHull[1] > abs(self.hullCenter[i][0] - imghsv.width / 4)):
+            elif(targetHull[1] > abs(self.hullCenter[i][0] - self.width / 4)):
                 targetHull = (self.hullCenter[i][2], abs(self.hullCenter[i][0] - self.width / 4))
 
+        hlist = []
         if(targetHull[0] != -1):
             #jevois.drawLine(outimg, int(centers[targetHull[0]][0]), int(centers[targetHull[0]][1]), int(centers[nearHull[targetHull[0]]][0]), int(centers[nearHull[targetHull[0]]][1]), 2, jevois.YUYV.MedPurple)
 
@@ -267,54 +270,73 @@ class FirstPython:
                 (int(centers[nearHull[targetHull[0]]][0]), int(centers[nearHull[targetHull[0]]][1])),
                 )
 
+            ########
+            ########
+
+            # Draw information for testing
+            xChange = hulls[nearHull[targetHull[0]]][(closePoint[targetHull[0]][1] + 3) % 4,0,0] - hulls[targetHull[0]][(closePoint[targetHull[0]][0] + 1) % 4,0,0]
+            yChange = hulls[nearHull[targetHull[0]]][(closePoint[targetHull[0]][1] + 3) % 4,1,0] - hulls[targetHull[0]][(closePoint[targetHull[0]][0] + 1) % 4,1,0]
+
+            corners = (
+                (hulls[nearHull[targetHull[0]]][(closePoint[targetHull[0]][1] + 1) % 4,0,0], hulls[nearHull[targetHull[0]]][(closePoint[targetHull[0]][1] + 1) % 4,1,0]),
+                (hulls[targetHull[0]][(closePoint[targetHull[0]][0] + 1) % 4,0,0] + xChange*self.targetRatio, hulls[targetHull[0]][(closePoint[targetHull[0]][0] + 1) % 4,1,0] + yChange*self.targetRatio),
+                (hulls[nearHull[targetHull[0]]][(closePoint[targetHull[0]][1] + 3) % 4,0,0] - xChange*self.targetRatio, hulls[nearHull[targetHull[0]]][(closePoint[targetHull[0]][1] + 3) % 4,1,0] - yChange*self.targetRatio),
+                (hulls[targetHull[0]][(closePoint[targetHull[0]][0] + 3) % 4,0,0], hulls[targetHull[0]][(closePoint[targetHull[0]][0] + 3) % 4,1,0]),
+                )
+
+            # Bottom Points
+            #jevois.drawDisk(outimg, int(corners[0][0]), int(corners[0][1]), 10, jevois.YUYV.MedPurple)
+            #jevois.drawDisk(outimg, int(corners[1][0]), int(corners[1][1]), 10, jevois.YUYV.MedGreen)
+
+            # Top Points
+            #jevois.drawDisk(outimg, int(corners[2][0]), int(corners[2][1]), 10, jevois.YUYV.MedPurple)
+            #jevois.drawDisk(outimg, int(corners[3][0]), int(corners[3][1]), 10, jevois.YUYV.MedPurple)
+            
+            ########
+            ########
+
             # Maps U-Shape's corners weighted by Rectangular Corners
+            percentFill = 0.1
+
             poly = np.array([
                 [int(corners[0][0]), int(corners[0][1])],
                 [int(corners[1][0]), int(corners[1][1])],
                 [int(corners[2][0]), int(corners[2][1])],
                 [int(corners[3][0]), int(corners[3][1])],
-                [int((corners[3][0] * 9 + corners[0][0]) / 10), int((corners[3][1] * 9 + corners[0][1]) / 10)],
-                [int((corners[2][0] * 9 + corners[0][0]) / 10), int((corners[2][1] * 9 + corners[0][1]) / 10)],
-                [int((corners[1][0] * 9 + corners[3][0]) / 10), int((corners[1][1] * 9 + corners[3][1]) / 10)],
-                [int((corners[0][0] * 9 + corners[3][0]) / 10), int((corners[0][1] * 9 + corners[3][1]) / 10)],
+                [int((corners[3][0] * (1 - percentFill) + corners[0][0] * (percentFill))), int((corners[3][1] * (1 - percentFill) + corners[0][1] * (percentFill)))],
+                [int((corners[2][0] * (1 - percentFill) + corners[0][0] * (percentFill))), int((corners[2][1] * (1 - percentFill) + corners[0][1] * (percentFill)))],
+                [int((corners[1][0] * (1 - percentFill) + corners[3][0] * (percentFill))), int((corners[1][1] * (1 - percentFill) + corners[3][1] * (percentFill)))],
+                [int((corners[0][0] * (1 - percentFill) + corners[3][0] * (percentFill))), int((corners[0][1] * (1 - percentFill) + corners[3][1] * (percentFill)))],
                 ],np.int32)
+
+            #poly = np.array([
+            #    [int(corners[0][0]), int(corners[0][1])],
+            #    [int(corners[1][0]), int(corners[1][1])],
+            #    [int(corners[2][0]), int(corners[2][1])],
+            #    [int(corners[3][0]), int(corners[3][1])],
+            #    [int((corners[3][0] * 9 + corners[0][0]) / 10), int((corners[3][1] * 9 + corners[0][1]) / 10)],
+            #    [int((corners[2][0] * 9 + corners[0][0]) / 10), int((corners[2][1] * 9 + corners[0][1]) / 10)],
+            #    [int((corners[1][0] * 9 + corners[3][0]) / 10), int((corners[1][1] * 9 + corners[3][1]) / 10)],
+            #    [int((corners[0][0] * 9 + corners[3][0]) / 10), int((corners[0][1] * 9 + corners[3][1]) / 10)],
+            #    ],np.int32)
     
             # Draw U-Shaped Map
             poly = poly.reshape((-1,1,2))
             cv2.fillPoly(imgth, [poly], (255, 255, 255))
 
-        # Define left and right and find the bottom points
-        """for i in range(len(hulls)):
-            for k in range(len(hulls[i])):
-                for j in range(len(hulls[nearHull[i]])):
-                    # Left
-                    if(centers[i][0] > centers[nearHull[i]][0] and nearHull[nearHull[i]] == i):
-                        # Maps Rectangular Corners
-                        corners = (
-                            (int(centers[i][0]), int(centers[i][1])),
-                            (int(hulls[i][(closePoint[i][0] + 1) % 4,0,0]), int(hulls[i][(closePoint[i][0] + 1) % 4,1,0])),
-                            (int(hulls[nearHull[i]][(closePoint[i][1] + 3) % 4,0,0]), int(hulls[nearHull[i]][(closePoint[i][1] + 3) % 4,1,0])),
-                            (int(centers[nearHull[i]][0]), int(centers[nearHull[i]][1])),
-                            )
+            pxThreshold = 20
+            isInRange = True
+            for point in corners:
+                if(point[0] > pxThreshold and point[0] < self.width - pxThreshold and point[1] > pxThreshold and point[1] < self.height - pxThreshold): continue
+                isInRange = False
 
-                        # Maps U-Shape's corners weighted by Rectangular Corners
-                        poly = np.array([
-                            [int(corners[0][0]), int(corners[0][1])],
-                            [int(corners[1][0]), int(corners[1][1])],
-                            [int(corners[2][0]), int(corners[2][1])],
-                            [int(corners[3][0]), int(corners[3][1])],
-                            [int((corners[3][0] * 9 + corners[0][0]) / 10), int((corners[3][1] * 9 + corners[0][1]) / 10)],
-                            [int((corners[2][0] * 9 + corners[0][0]) / 10), int((corners[2][1] * 9 + corners[0][1]) / 10)],
-                            [int((corners[1][0] * 9 + corners[3][0]) / 10), int((corners[1][1] * 9 + corners[3][1]) / 10)],
-                            [int((corners[0][0] * 9 + corners[3][0]) / 10), int((corners[0][1] * 9 + corners[3][1]) / 10)],
-                            ],np.int32)
+            jevois.drawDisk(outimg, int(self.width - pxThreshold), int(self.height - pxThreshold), 10, jevois.YUYV.MedPurple)
 
-                        # Draw U-Shaped Map
-                        poly = poly.reshape((-1,1,2))
-                        cv2.fillPoly(imgth, [poly], (255, 255, 255))
-        """
+            if(isInRange): hlist.append(corners)
+
         #!!!-- End Mod --!!!#
 
+        """
         # Detect objects by finding contours:
         contours, hierarchy = cv2.findContours(imgth, cv2.RETR_CCOMP, cv2.CHAIN_APPROX_SIMPLE)
         outstr += "N={} ".format(len(contours))
@@ -416,11 +438,12 @@ class FirstPython:
             hlist.append(hull)
 
         if len(str2) > len(beststr2):  beststr2 = str2
+        """
         
         # Display any results requested by the users:
         if outimg is not None and outimg.valid():
             if (outimg.width == w * 2): jevois.pasteGreyToYUYV(imgth, outimg, w, 0)
-            jevois.writeText(outimg, outstr + beststr2, 3, h+1, jevois.YUYV.White, jevois.Font.Font6x10)
+            jevois.writeText(outimg, "yeet 2.0", 3, h+1, jevois.YUYV.White, jevois.Font.Font6x10)
 
         return hlist
 
@@ -471,7 +494,7 @@ class FirstPython:
             q = (r, i[0], i[1], i[2])
 
             # Send x and y displacements
-            jevois.sendSerial("{} {} {}".
+            jevois.sendSerial("X: {} Y: {} Angle: {}".
                 format(np.asscalar(tv[0]) * self.mToFt, np.asscalar(tv[2]) * self.mToFt, np.asscalar(axis[0])))
             idx += 1
                               
@@ -616,14 +639,14 @@ class FirstPython:
                 while(len(self.tsum[k]) > 10):
                     self.tsum[k].pop(0)
 
-        # Output Average of Target in Radians
-        output = "output: "
-        jevois.writeText(outimg, output, 3, 0, jevois.YUYV.White, jevois.Font.Font6x10)
-        for i in range(len(self.tsum)):
-            output = str(self.mToFt * sum(self.tsum[i]) / len(self.tsum[i]))
-            jevois.writeText(outimg, output, 3, (i + 1) * 10, jevois.YUYV.White, jevois.Font.Font6x10)
+        for i in range(len(rvecs)):
+            for k in range(len(rvecs[i])):
+                self.rsum[k].append(rvecs[i][k])
+                while(len(self.rsum[k]) > 10):
+                    self.rsum[k].pop(0)
 
-        # Target the hull closest to the center of the screen
+        # Output Average of Target in Feet and Radians
+        jevois.writeText(outimg, "X: {} Y: {} Angle: {}".format(sum(self.tsum[0]) / len(self.tsum[0]) * self.mToFt, sum(self.tsum[2]) / len(self.tsum[2]) * self.mToFt, sum(self.rsum[1]) / len(self.rsum[1])), 3, 0, jevois.YUYV.White, jevois.Font.Font6x10)
 
         # Send all serial messages:
         self.sendAllSerial(w, h, hlist, rvecs, tvecs)
