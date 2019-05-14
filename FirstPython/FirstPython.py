@@ -105,6 +105,7 @@ class FirstPython:
         self.ethresh = 900                 # Shape error threshold (lower is stricter for exact shape)
         self.margin = 5                    # Margin from from frame borders (pixels)
         self.mToFt = 3.28084               # Conversion of Meters to Feet
+        self.cameraAngle = 0.401426        # Angle up from the surface of the floor (radians)
 
         # Averaging variables
         self.tsum = [[0],[0],[0]]
@@ -645,8 +646,21 @@ class FirstPython:
                 while(len(self.rsum[k]) > 10):
                     self.rsum[k].pop(0)
 
+        # Find distance along ground to robot (Y)
+        try:
+            X = sum(self.tsum[0]) / len(self.tsum[0]) * self.mToFt
+            Y = sum(self.tsum[2]) / len(self.tsum[2]) * self.mToFt
+            Z = sum(self.tsum[1]) / len(self.tsum[1]) * self.mToFt
+    
+            groundDis = -0.2509 + 1.2073 * math.cos(self.cameraAngle - math.atan(Z/Y)) * math.sqrt(math.pow(Z, 2) + math.pow(Y, 2))
+        except:
+            groundDis = 0
+            X = 0
+            Y = 0
+            Z = 0
+
         # Output Average of Target in Feet and Radians
-        jevois.writeText(outimg, "X: {} Y: {} Angle: {}".format(sum(self.tsum[0]) / len(self.tsum[0]) * self.mToFt, sum(self.tsum[2]) / len(self.tsum[2]) * self.mToFt, sum(self.rsum[1]) / len(self.rsum[1])), 3, 0, jevois.YUYV.White, jevois.Font.Font6x10)
+        jevois.writeText(outimg, "X: {} Y: {} Angle: {}".format(X, groundDis, (180 / 3.14) * sum(self.rsum[1]) / len(self.rsum[1])), 3, 0, jevois.YUYV.White, jevois.Font.Font6x10)
 
         # Send all serial messages:
         self.sendAllSerial(w, h, hlist, rvecs, tvecs)
