@@ -19,33 +19,31 @@ import cv2
 import numpy as np
 import math # for cos, sin, etc
 
-## Simple example of FIRST Robotics image processing pipeline using OpenCV in Python on JeVois
+## Modified example of FIRST Robotics image processing pipeline using OpenCV in Python on JeVois
 #
-# This module is a simplified version of the C++ module \jvmod{FirstVision}. It is available with \jvversion{1.6.2} or
-# later.
+# This module is a modified and simplified version of the C++ module \jvmod{FirstVision}. It is available with
+# \jvversion{1.6.2} or later.
 #
 # This module implements a simple color-based object detector using OpenCV in Python. Its main goal is to also
 # demonstrate full 6D pose recovery of the detected object, in Python.
 #
+# FIXME add pictures
+#
 # This module isolates pixels within a given HSV range (hue, saturation, and value of color pixels), does some cleanups,
-# and extracts object contours. It is looking for a rectangular U shape of a specific size (set by parameters \p owm and
-# \p ohm for object width and height in meters). See screenshots for an example of shape. It sends information about
-# detected objects over serial.
+# and extracts object contours. It is looking for the 2019 First Robotics Competition Vision Targets of a specific size
+# (set by parameters \p owm and \p ohm for object width and height in meters). See screenshots for an example of shape.
+# It sends information about detected objects over serial.
 #
 # This module usually works best with the camera sensor set to manual exposure, manual gain, manual color balance, etc
 # so that HSV color values are reliable. See the file \b script.cfg file in this module's directory for an example of
 # how to set the camera settings each time this module is loaded.
 #
-# This module is provided for inspiration. It has no pretension of actually solving the FIRST Robotics vision problem
-# in a complete and reliable way. It is released in the hope that FRC teams will try it out and get inspired to
-# develop something much better for their own robot.
-#
 #  Using this module
 #  -----------------
 #
-# Check out [this tutorial](http://jevois.org/tutorials/UserFirstVision.html) first, for the \jvmod{FirstVision} module
-# written in C++ and also check out the doc for \jvmod{FirstVision}. Then you can just dive in and start editing the
-# python code of \jvmod{FirstPython}.
+# Check out [this tutorial](http://jevois.org/tutorials/UserFirstVision.html) first, for the original
+# \jvmod{FirstVision} module written in C++ and also check out the doc for the original \jvmod{FirstVision}. Then
+# you can just dive in and start editing the python code of \jvmod{FirstPython}.
 #
 # See http://jevois.org/tutorials for tutorials on getting started with programming JeVois in Python without having
 # to install any development software on your host computer.
@@ -54,10 +52,10 @@ import math # for cos, sin, etc
 # -------------
 #
 # Edit the module's file at JEVOIS:/modules/JeVois/FirstPython/FirstPython.py and set the parameters \p self.owm and \p
-# self.ohm to the physical width and height of your U-shaped object in meters. You should also review and edit the other
-# parameters in the module's constructor, such as the range of HSV colors.
+# self.ohm to the distance between the two bottom points and the y displacement between a bottom point and a top point.
+# You should also review and edit the other parameters in the module's constructor, such as the range of HSV colors.
 #
-# @author Laurent Itti
+# FIXME videomappings incorrect
 # 
 # @displayname FIRST Python
 # @videomapping YUYV 640 252 60.0 YUYV 320 240 60.0 JeVois FirstPython
@@ -80,16 +78,13 @@ class FirstPython:
         # HSV color range to use:
         #
         # H: 0=red/do not use because of wraparound, 30=yellow, 45=light green, 60=green, 75=green cyan, 90=cyan,
-        #      105=light blue, 120=blue, 135=purple, 150=pink
+        #      105=light blue, 120=blue, 135=purple, 150=pink, 180=red
         # S: 0 for unsaturated (whitish discolored object) to 255 for fully saturated (solid color)
         # V: 0 for dark to 255 for maximally bright
-        #self.HSVmin = np.array([ 30, 75, 30], dtype=np.uint8)
-        #self.HSVmin = np.array([45, 50, 50], dtype=np.uint8)
         self.HSVmin = np.array([45, 60, 60], dtype=np.uint8)
         self.HSVmax = np.array([90, 255, 255], dtype=np.uint8)
-        # Detected Color Approx: [110.5, 255, 250.92]
 
-        # Measure your U-shaped object (in meters) and set its size here:
+        # Measure the object (in meters) and set its size here:
         self.owm = 0.275 # width in meters
         self.ohm = 0.150 # height in meters
 
@@ -100,7 +95,7 @@ class FirstPython:
 
         # Other processing parameters:
         self.epsilon = 0.019               # Shape smoothing factor (higher for smoother)
-        self.hullarea = ( 10*20, 300*300 )   # Range of object area (in pixels) to track
+        self.hullarea = ( 10*20, 300*300 ) # Range of object area (in pixels) to track
         self.hullfill = 50                 # Max fill ratio of the convex hull (percent)
         self.ethresh = 900                 # Shape error threshold (lower is stricter for exact shape)
         self.margin = 5                    # Margin from from frame borders (pixels)
@@ -113,8 +108,9 @@ class FirstPython:
         self.sumCount = 0
 
         # Targeting variables
-        self.hullCenter = []
         self.targetRatio = (300.0/275.0)   # Ratio between distance of top points and bottom points between two targets
+        self.pxThreshold = 20              # How close the target can be to the edge of the image
+        self.percentFill = 0.1             # Relative amount that the U-Shape map will be filled
     
         # Instantiate a JeVois Timer to measure our processing framerate:
         self.timer = jevois.Timer("FirstPython", 100, jevois.LOG_INFO)
@@ -124,7 +120,7 @@ class FirstPython:
         # read files, etc
         
     # ###################################################################################################
-    ## Load camera calibration from JeVois share directory
+    ## Load default camera calibration from JeVois share directory
     def loadCameraCalibration(self, w, h):
         cpf = "/jevois/share/camera/calibration{}x{}.yaml".format(w, h)
         fs = cv2.FileStorage(cpf, cv2.FILE_STORAGE_READ)
@@ -138,14 +134,8 @@ class FirstPython:
     # ###################################################################################################
     ## Detect objects within our HSV range
     def detect(self, imgbgr, outimg = None):
-        self.hullCenter = []
         maxn = 9 # max number of objects we will consider
         h, w, chans = imgbgr.shape
-
-        # Draw test line
-        #poly = np.array([[400, 150], [390, 200], [490, 197], [497, 160], [485, 172], [478, 185], [402, 188], [412, 162]], np.int32)
-        #poly = poly.reshape((-1,1,2))
-        #cv2.fillPoly(imgbgr, [poly], (0, 255, 0))
 
         # Convert input image to HSV:
         imghsv = cv2.cvtColor(imgbgr, cv2.COLOR_BGR2HSV)
@@ -164,10 +154,10 @@ class FirstPython:
         imgth = cv2.erode(imgth, self.erodeElement)
         imgth = cv2.dilate(imgth, self.dilateElement)
 
-        #!!!-- Apply Mod --!!!#
         contours, hierarchy = cv2.findContours(imgth, cv2.RETR_CCOMP, cv2.CHAIN_APPROX_SIMPLE)
         contours = sorted(contours, key = cv2.contourArea, reverse = True)[:maxn]
 
+        # Find and create the raw hulls
         hulls = ()
         centers = ()
         for i in range(len(contours)):
@@ -178,20 +168,15 @@ class FirstPython:
             # Outline hull and find center
             huarea = cv2.contourArea(hull, oriented = False)
             if len(hull) == 4 and huarea > self.hullarea[0] and huarea < self.hullarea[1]:
-                #npHull = np.array(hull, dtype=int).reshape(4,2,1)
                 npHull = np.array(hull, dtype=int).reshape(len(hull),2,1)
-                #jevois.drawLine(outimg, int(npHull[0,0,0]), int(npHull[0,1,0]), int(npHull[1,0,0]), int(npHull[1,1,0]), 2, jevois.YUYV.MedPurple)
-                #jevois.drawLine(outimg, int(npHull[1,0,0]), int(npHull[1,1,0]), int(npHull[2,0,0]), int(npHull[2,1,0]), 2, jevois.YUYV.MedPurple)
-                #jevois.drawLine(outimg, int(npHull[2,0,0]), int(npHull[2,1,0]), int(npHull[3,0,0]), int(npHull[3,1,0]), 2, jevois.YUYV.MedPurple)
-                #jevois.drawLine(outimg, int(npHull[3,0,0]), int(npHull[3,1,0]), int(npHull[0,0,0]), int(npHull[0,1,0]), 2, jevois.YUYV.MedPurple)
 
                 centers += (((npHull[0,0,0] + npHull[1,0,0] + npHull[2,0,0] + npHull[3,0,0]) / 4, (npHull[0,1,0] + npHull[1,1,0] + npHull[2,1,0] + npHull[3,1,0]) / 4),)
                 hulls += (npHull,)
 
-        # Reset Image
+        # Reset image
         imgth = cv2.inRange(imghsv, np.array([122, 122, 122], dtype=np.uint8), np.array([122, 122, 122], dtype=np.uint8))
 
-        # Finds the two bottom point of each target
+        # Finds the two lowest points of each hull, typically: bottom left point, bottom right point
         bottomPoints = ()
         for i in range(len(hulls)):
             bottomPoint = (-1, 0)
@@ -214,10 +199,7 @@ class FirstPython:
             else:
                 bottomPoints += ((i, secondPoint[0]),)
 
-        #for i in range(len(bottomPoints)):
-            #jevois.drawDisk(outimg, int(hulls[bottomPoints[i][0]][bottomPoints[i][1],0,0]), int(hulls[bottomPoints[i][0]][bottomPoints[i][1],1,0]), 2, jevois.YUYV.MedGreen)
-
-        # Find closest hull
+        # Find closest other hull to each hull
         nearHull = ()
         for i in range(len(hulls)):
             closest = (-1, 0.0)
@@ -232,7 +214,7 @@ class FirstPython:
 
             nearHull += (closest[0],)
 
-        # Find closest points and draw point to point
+        # Find the two closest points between a hull and its nearest hull
         closePoint = ()
         for i in range(len(hulls)):
             closest = (-1, -1, 0.0)
@@ -244,40 +226,35 @@ class FirstPython:
                         closest = (k, j, math.pow(hulls[i][k,0,0] - hulls[nearHull[i]][j,0,0],2) + math.pow(hulls[i][k,1,0] - hulls[nearHull[i]][j,1,0],2))
             closePoint += ((closest[0], closest[1]),)
 
-        # Find Average Target Center
+        # Find the target center
+        hullCenter = []
         for i in range(len(hulls)):
             if(centers[i][0] > centers[nearHull[i]][0] and nearHull[nearHull[i]] == i):
-                self.hullCenter += [(centers[i][0] + centers[nearHull[i]][0]) / 2, (centers[i][1] + centers[nearHull[i]][1]) / 2, i],
+                hullCenter += [(centers[i][0] + centers[nearHull[i]][0]) / 2, (centers[i][1] + centers[nearHull[i]][1]) / 2, i],
 
-        # Choose Target Closest to Center of Screen
+        # Choose target closest to center of screen
         targetHull = (-1, 0)
-        for i in range(len(self.hullCenter)):
-            #jevois.drawDisk(outimg, int(self.hullCenter[i][0]), int(self.hullCenter[i][1]), 10, jevois.YUYV.MedPurple)
-
+        for i in range(len(hullCenter)):
             if(targetHull[0] == -1):
-                targetHull = (self.hullCenter[i][2], abs(self.hullCenter[i][0] - self.width / 4))
-            elif(targetHull[1] > abs(self.hullCenter[i][0] - self.width / 4)):
-                targetHull = (self.hullCenter[i][2], abs(self.hullCenter[i][0] - self.width / 4))
+                targetHull = (hullCenter[i][2], abs(hullCenter[i][0] - self.width / 4))
+            elif(targetHull[1] > abs(hullCenter[i][0] - self.width / 4)):
+                targetHull = (hullCenter[i][2], abs(hullCenter[i][0] - self.width / 4))
 
+        # Generate the U-Shape map of the target for pose estimation if a target exists
         hlist = []
         if(targetHull[0] != -1):
-            #jevois.drawLine(outimg, int(centers[targetHull[0]][0]), int(centers[targetHull[0]][1]), int(centers[nearHull[targetHull[0]]][0]), int(centers[nearHull[targetHull[0]]][1]), 2, jevois.YUYV.MedPurple)
-
-            # Maps Rectangular Corners
-            corners  = (
-                (int(centers[targetHull[0]][0]), int(centers[targetHull[0]][1])),
-                (int(hulls[targetHull[0]][(closePoint[targetHull[0]][0] + 1) % 4,0,0]), int(hulls[targetHull[0]][(closePoint[targetHull[0]][0] + 1) % 4,1,0])),
-                (int(hulls[nearHull[targetHull[0]]][(closePoint[targetHull[0]][1] + 3) % 4,0,0]), int(hulls[nearHull[targetHull[0]]][(closePoint[targetHull[0]][1] + 3) % 4,1,0])),
-                (int(centers[nearHull[targetHull[0]]][0]), int(centers[nearHull[targetHull[0]]][1])),
-                )
-
-            ########
-            ########
-
-            # Draw information for testing
+            # Calculates the displacement of the edge of the physical target to the corner of the drawn target
             xChange = hulls[nearHull[targetHull[0]]][(closePoint[targetHull[0]][1] + 3) % 4,0,0] - hulls[targetHull[0]][(closePoint[targetHull[0]][0] + 1) % 4,0,0]
             yChange = hulls[nearHull[targetHull[0]]][(closePoint[targetHull[0]][1] + 3) % 4,1,0] - hulls[targetHull[0]][(closePoint[targetHull[0]][0] + 1) % 4,1,0]
 
+            # Map points to desired U-Shape
+            #
+            #   0               3
+            #   |               |
+            #   |               |
+            #   |               |
+            #   1_______________2
+            #
             corners = (
                 (hulls[nearHull[targetHull[0]]][(closePoint[targetHull[0]][1] + 1) % 4,0,0], hulls[nearHull[targetHull[0]]][(closePoint[targetHull[0]][1] + 1) % 4,1,0]),
                 (hulls[targetHull[0]][(closePoint[targetHull[0]][0] + 1) % 4,0,0] + xChange*self.targetRatio, hulls[targetHull[0]][(closePoint[targetHull[0]][0] + 1) % 4,1,0] + yChange*self.targetRatio),
@@ -285,167 +262,36 @@ class FirstPython:
                 (hulls[targetHull[0]][(closePoint[targetHull[0]][0] + 3) % 4,0,0], hulls[targetHull[0]][(closePoint[targetHull[0]][0] + 3) % 4,1,0]),
                 )
 
-            # Bottom Points
-            #jevois.drawDisk(outimg, int(corners[0][0]), int(corners[0][1]), 10, jevois.YUYV.MedPurple)
-            #jevois.drawDisk(outimg, int(corners[1][0]), int(corners[1][1]), 10, jevois.YUYV.MedGreen)
-
-            # Top Points
-            #jevois.drawDisk(outimg, int(corners[2][0]), int(corners[2][1]), 10, jevois.YUYV.MedPurple)
-            #jevois.drawDisk(outimg, int(corners[3][0]), int(corners[3][1]), 10, jevois.YUYV.MedPurple)
-            
-            ########
-            ########
-
             # Maps U-Shape's corners weighted by Rectangular Corners
-            percentFill = 0.1
-
             poly = np.array([
                 [int(corners[0][0]), int(corners[0][1])],
                 [int(corners[1][0]), int(corners[1][1])],
                 [int(corners[2][0]), int(corners[2][1])],
                 [int(corners[3][0]), int(corners[3][1])],
-                [int((corners[3][0] * (1 - percentFill) + corners[0][0] * (percentFill))), int((corners[3][1] * (1 - percentFill) + corners[0][1] * (percentFill)))],
-                [int((corners[2][0] * (1 - percentFill) + corners[0][0] * (percentFill))), int((corners[2][1] * (1 - percentFill) + corners[0][1] * (percentFill)))],
-                [int((corners[1][0] * (1 - percentFill) + corners[3][0] * (percentFill))), int((corners[1][1] * (1 - percentFill) + corners[3][1] * (percentFill)))],
-                [int((corners[0][0] * (1 - percentFill) + corners[3][0] * (percentFill))), int((corners[0][1] * (1 - percentFill) + corners[3][1] * (percentFill)))],
+                [int((corners[3][0] * (1 - self.percentFill) + corners[0][0] * (self.percentFill))), int((corners[3][1] * (1 - self.percentFill) + corners[0][1] * (self.percentFill)))],
+                [int((corners[2][0] * (1 - self.percentFill) + corners[0][0] * (self.percentFill))), int((corners[2][1] * (1 - self.percentFill) + corners[0][1] * (self.percentFill)))],
+                [int((corners[1][0] * (1 - self.percentFill) + corners[3][0] * (self.percentFill))), int((corners[1][1] * (1 - self.percentFill) + corners[3][1] * (self.percentFill)))],
+                [int((corners[0][0] * (1 - self.percentFill) + corners[3][0] * (self.percentFill))), int((corners[0][1] * (1 - self.percentFill) + corners[3][1] * (self.percentFill)))],
                 ],np.int32)
-
-            #poly = np.array([
-            #    [int(corners[0][0]), int(corners[0][1])],
-            #    [int(corners[1][0]), int(corners[1][1])],
-            #    [int(corners[2][0]), int(corners[2][1])],
-            #    [int(corners[3][0]), int(corners[3][1])],
-            #    [int((corners[3][0] * 9 + corners[0][0]) / 10), int((corners[3][1] * 9 + corners[0][1]) / 10)],
-            #    [int((corners[2][0] * 9 + corners[0][0]) / 10), int((corners[2][1] * 9 + corners[0][1]) / 10)],
-            #    [int((corners[1][0] * 9 + corners[3][0]) / 10), int((corners[1][1] * 9 + corners[3][1]) / 10)],
-            #    [int((corners[0][0] * 9 + corners[3][0]) / 10), int((corners[0][1] * 9 + corners[3][1]) / 10)],
-            #    ],np.int32)
     
             # Draw U-Shaped Map
             poly = poly.reshape((-1,1,2))
             cv2.fillPoly(imgth, [poly], (255, 255, 255))
 
-            pxThreshold = 20
+            # Does not pass if the sides of the rectangle are too close to the sides of the image
             isInRange = True
             for point in corners:
-                if(point[0] > pxThreshold and point[0] < self.width - pxThreshold and point[1] > pxThreshold and point[1] < self.height - pxThreshold): continue
+                if(point[0] > self.pxThreshold and point[0] < self.width - self.pxThreshold and point[1] > self.pxThreshold and point[1] < self.height - self.pxThreshold): continue
                 isInRange = False
-
-            jevois.drawDisk(outimg, int(self.width - pxThreshold), int(self.height - pxThreshold), 10, jevois.YUYV.MedPurple)
 
             if(isInRange): hlist.append(corners)
 
-        #!!!-- End Mod --!!!#
-
-        """
-        # Detect objects by finding contours:
-        contours, hierarchy = cv2.findContours(imgth, cv2.RETR_CCOMP, cv2.CHAIN_APPROX_SIMPLE)
-        outstr += "N={} ".format(len(contours))
-
-        # Only consider the 5 biggest objects by area:
-        contours = sorted(contours, key = cv2.contourArea, reverse = True)[:maxn]
-
-        hlist = [ ] # list of hulls of good objects, which we will return
-        str2 = ""
-        beststr2 = ""
-        
-        # Identify the "good" objects:
-        for c in contours:
-            # Keep track of our best detection so far:
-            if len(str2) > len(beststr2): beststr2 = str2
-            str2 = ""
-
-            # Compute contour area:
-            area = cv2.contourArea(c, oriented = False)
-
-            # Compute convex hull:
-            rawhull = cv2.convexHull(c, clockwise = True)
-            rawhullperi = cv2.arcLength(rawhull, closed = True)
-            hull = cv2.approxPolyDP(rawhull, epsilon = self.epsilon * rawhullperi * 3.0, closed = True)
-
-            # Is it the right shape?
-            if (hull.shape != (4,1,2)): continue # 4 vertices for the rectangular convex outline (shows as a trapezoid)
-            str2 += "H" # Hull is quadrilateral
-          
-            huarea = cv2.contourArea(hull, oriented = False)
-            if huarea < self.hullarea[0] or huarea > self.hullarea[1]: continue
-            str2 += "A" # Hull area ok
-          
-            hufill = area / huarea * 100.0
-            if hufill > self.hullfill: continue
-            str2 += "F" # Fill is ok
-          
-            # Check object shape:
-            peri = cv2.arcLength(c, closed = True)
-            approx = cv2.approxPolyDP(c, epsilon = self.epsilon * peri, closed = True)
-            if len(approx) < 7 or len(approx) > 9: continue  # 8 vertices for a U shape
-            str2 += "S" # Shape is ok
-
-            # Compute contour serr:
-            serr = 100.0 * cv2.matchShapes(c, approx, cv2.CONTOURS_MATCH_I1, 0.0)
-            if serr > self.ethresh: continue
-            str2 += "E" # Shape error is ok
-          
-            # Reject the shape if any of its vertices gets within the margin of the image bounds. This is to avoid
-            # getting grossly incorrect 6D pose estimates as the shape starts getting truncated as it partially exits
-            # the camera field of view:
-            reject = 0
-            for v in c:
-                if v[0,0] < self.margin or v[0,0] >= w-self.margin or v[0,1] < self.margin or v[0,1] >= h-self.margin:
-                   reject = 1
-                   break
-               
-            if reject == 1: continue
-            str2 += "M" # Margin ok
-          
-            # Re-order the 4 points in the hull if needed: In the pose estimation code, we will assume vertices ordered
-            # as follows:
-            #
-            #    0|        |3
-            #     |        |
-            #     |        |
-            #    1----------2
-
-            # v10+v23 should be pointing outward the U more than v03+v12 is:
-            v10p23 = complex(hull[0][0,0] - hull[1][0,0] + hull[3][0,0] - hull[2][0,0],
-                             hull[0][0,1] - hull[1][0,1] + hull[3][0,1] - hull[2][0,1])
-            len10p23 = abs(v10p23)
-            v03p12 = complex(hull[3][0,0] - hull[0][0,0] + hull[2][0,0] - hull[1][0,0],
-                             hull[3][0,1] - hull[0][0,1] + hull[2][0,1] - hull[1][0,1])
-            len03p12 = abs(v03p12)
-
-            # Vector from centroid of U shape to centroid of its hull should also point outward of the U:
-            momC = cv2.moments(c)
-            momH = cv2.moments(hull)
-            vCH = complex(momH['m10'] / momH['m00'] - momC['m10'] / momC['m00'],
-                          momH['m01'] / momH['m00'] - momC['m01'] / momC['m00'])
-            lenCH = abs(vCH)
-
-            if len10p23 < 0.1 or len03p12 < 0.1 or lenCH < 0.1: continue
-            str2 += "V" # Shape vectors ok
-
-            good = (v10p23.real * vCH.real + v10p23.imag * vCH.imag) / (len10p23 * lenCH)
-            bad = (v03p12.real * vCH.real + v03p12.imag * vCH.imag) / (len03p12 * lenCH)
-
-            # We reject upside-down detections as those are likely to be spurious:
-            if vCH.imag >= -2.0: continue
-            str2 += "U" # U shape is upright
-        
-            # Fixup the ordering of the vertices if needed:
-            if bad > good: hull = np.roll(hull, shift = 1, axis = 0)
-
-            # This detection is a keeper:
-            str2 += " OK"
-            hlist.append(hull)
-
-        if len(str2) > len(beststr2):  beststr2 = str2
-        """
-        
         # Display any results requested by the users:
         if outimg is not None and outimg.valid():
             if (outimg.width == w * 2): jevois.pasteGreyToYUYV(imgth, outimg, w, 0)
             jevois.writeText(outimg, "yeet 2.0", 3, h+1, jevois.YUYV.White, jevois.Font.Font6x10)
 
+        # Return the target
         return hlist
 
     # ###################################################################################################
@@ -455,11 +301,20 @@ class FirstPython:
         tvecs = []
         
         # set coordinate system in the middle of the object, with Z pointing out
+        # while mapping the rectangular shape of the object
+        #
+        #   [0]       [3]
+        #
+        #       (0,0)
+        #
+        #   [1]       [2]
+        #
         objPoints = np.array([ ( -self.owm * 0.5, -self.ohm * 0.5, 0 ),
                                ( -self.owm * 0.5,  self.ohm * 0.5, 0 ),
                                (  self.owm * 0.5,  self.ohm * 0.5, 0 ),
                                (  self.owm * 0.5, -self.ohm * 0.5, 0 ) ])
 
+        # Approximates the pose (position and orientation) of the object
         for detection in hlist:
             det = np.array(detection, dtype=np.float).reshape(4,2,1)
             (ok, rv, tv) = cv2.solvePnP(objPoints, det, self.camMatrix, self.distCoeffs)
@@ -470,12 +325,24 @@ class FirstPython:
                 rvecs.append(np.array([ (0.0), (0.0), (0.0) ]))
                 tvecs.append(np.array([ (0.0), (0.0), (0.0) ]))
 
+        # FIXME check table mappings
+        # returns pose
+        #         returnedArray - definition
+        #           [n] - (+)        and  (-)
+        #         rvecs - the rotational vector or orientation of target relative to how much it is pointing (+z-axis) at the camera
+        #           [0] - right      and  left
+        #           [1] - up         and  down
+        #           [2] - clockwise  and  counter clockwise
+        #         tvecs - the displacement vector of the target out from the camera
+        #           [0] - right      and  left
+        #           [1] - up         and  down
+        #           [2] - forward    and  backward
         return (rvecs, tvecs)        
         
     # ###################################################################################################
     ## Send serial messages, one per object
     def sendAllSerial(self, w, h, hlist, rvecs, tvecs):
-        # To call use following serial commands:
+        # Initialize by writing the following serial commands:
         # setmapping2 YUYV 640 480 30.0 JeVois FirstPython
         # streamon
 
@@ -494,7 +361,7 @@ class FirstPython:
             i = axis * math.sin(theta)
             q = (r, i[0], i[1], i[2])
 
-            # Send x and y displacements
+            # Send x, z displacements and y rotation
             jevois.sendSerial("X: {} Y: {} Angle: {}".
                 format(np.asscalar(tv[0]) * self.mToFt, np.asscalar(tv[2]) * self.mToFt, np.asscalar(axis[0])))
             idx += 1
@@ -567,7 +434,6 @@ class FirstPython:
             jevois.drawLine(outimg, int(cu[3][0,0]), int(cu[3][0,1]), int(cu[7][0,0]), int(cu[7][0,1]),
                             1, jevois.YUYV.LightGreen)
 
-            #jevois.drawDisk(outimg, int(self.hullCenter[i][0]), int(self.hullCenter[i][1]), 10, jevois.YUYV.MedPurple)
             i += 1
 
     # ###################################################################################################
